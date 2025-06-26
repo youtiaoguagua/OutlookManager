@@ -29,8 +29,8 @@
 
 ```bash
 # 🎯 最快启动
-git clone https://github.com/oDaiSuno/OutlookManager.git && cd outlook-manager
-docker-compose up -d
+git clone https://github.com/oDaiSuno/OutlookManager.git && cd OutlookManager
+docker compose up -d
 
 # 🌐 访问服务
 open http://localhost:8000
@@ -185,16 +185,16 @@ volumes:
 
 ```bash
 # 查看状态
-docker-compose ps
+docker compose ps
 
 # 实时日志
-docker-compose logs -f
+docker compose logs -f
 
 # 滚动更新
-docker-compose pull && docker-compose up -d
+docker compose pull && docker compose up -d
 
 # 完全重置
-docker-compose down -v && docker-compose up -d
+docker compose down -v && docker compose up -d
 ```
 
 ---
