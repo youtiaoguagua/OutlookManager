@@ -8,15 +8,19 @@ from typing import Optional, List, Dict, Any
 from pathlib import Path
 
 import httpx
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Depends, status
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr
 from email.header import decode_header
 from email.utils import parsedate_to_datetime
 import imaplib
 from fastapi.middleware.cors import CORSMiddleware
 from itertools import groupby
+
+# 导入配置模块
+from config import verify_admin_password, get_config_info
 
 
 
@@ -81,6 +85,28 @@ class AccountResponse(BaseModel):
     email_id: str
     message: str
 
+# 简化的认证模型已移除，直接使用Bearer密码验证
+
+
+# ============================================================================
+# 极简认证函数
+# ============================================================================
+
+security = HTTPBearer()
+
+def verify_admin_bearer(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """验证Bearer密码（极简认证）"""
+    if not verify_admin_password(credentials.credentials):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="管理密码错误",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return True
+
+async def get_current_admin(authenticated: bool = Depends(verify_admin_bearer)):
+    """获取当前管理员用户（依赖注入）"""
+    return authenticated
 
 # ============================================================================
 # 辅助函数
@@ -497,8 +523,13 @@ app.add_middleware(
 # 挂载静态文件服务
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+@app.get("/auth/config")
+async def get_auth_config():
+    """获取认证配置信息（用于前端判断认证状态）"""
+    return get_config_info()
+
 @app.post("/accounts", response_model=AccountResponse)
-async def register_account(credentials: AccountCredentials):
+async def register_account(credentials: AccountCredentials, current_admin: bool = Depends(get_current_admin)):
     """注册或更新邮箱账户"""
     try:
         # 验证凭证有效性
@@ -522,9 +553,10 @@ async def register_account(credentials: AccountCredentials):
 @app.get("/emails/{email_id}", response_model=EmailListResponse)
 async def get_emails(
     email_id: str,
-    folder: str = Query("all", regex="^(inbox|junk|all)$"),
+    folder: str = Query("all", pattern="^(inbox|junk|all)$"),
     page: int = Query(1, ge=1),
-    page_size: int = Query(100, ge=1, le=500)
+    page_size: int = Query(100, ge=1, le=500),
+    current_admin: bool = Depends(get_current_admin)
 ):
     """获取邮件列表"""
     credentials = await get_account_credentials(email_id)
@@ -536,7 +568,8 @@ async def get_dual_view_emails(
     email_id: str,
     inbox_page: int = Query(1, ge=1),
     junk_page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100)
+    page_size: int = Query(20, ge=1, le=100),
+    current_admin: bool = Depends(get_current_admin)
 ):
     """获取双栏视图邮件（收件箱和垃圾箱）"""
     credentials = await get_account_credentials(email_id)
@@ -555,7 +588,7 @@ async def get_dual_view_emails(
 
 
 @app.get("/emails/{email_id}/{message_id}", response_model=EmailDetailsResponse)
-async def get_email_detail(email_id: str, message_id: str):
+async def get_email_detail(email_id: str, message_id: str, current_admin: bool = Depends(get_current_admin)):
     """获取邮件详细内容"""
     credentials = await get_account_credentials(email_id)
     return await get_email_details(credentials, message_id)

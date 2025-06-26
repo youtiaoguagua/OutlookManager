@@ -694,7 +694,18 @@
             <h1>📧 Outlook邮件客户端</h1>
         </div>
 
-        <div id="loginCard" class="card">
+        <div id="adminLoginCard" class="card">
+            <h2>🔐 管理员登录</h2>
+            <p style="color: #64748b; margin-bottom: 20px;">请输入管理密码以访问邮件系统</p>
+            
+            <div class="input-group">
+                <label>管理密码</label>
+                <input type="password" id="adminPassword" placeholder="请输入管理密码" onkeypress="handleAdminPasswordKeyPress(event)">
+            </div>
+            <button class="btn btn-primary" onclick="adminLogin()">🔑 验证登录</button>
+        </div>
+
+        <div id="loginCard" class="card hidden">
             <h2>账户配置</h2>
             
             <div class="login-tabs">
@@ -789,6 +800,7 @@ example2@outlook.com----password2----refresh_token2----client_id2"></textarea>
         let currentPage = 1;
         let totalEmails = 0;
         let savedAccounts = JSON.parse(localStorage.getItem('savedAccounts') || '{}');
+        let adminPassword = localStorage.getItem('adminPassword');
 
         function formatEmailDate(dateString) {
             try {
@@ -853,6 +865,77 @@ example2@outlook.com----password2----refresh_token2----client_id2"></textarea>
             setTimeout(() => success.remove(), 3000);
         }
 
+        // ============================================================================
+        // 极简认证管理函数
+        // ============================================================================
+        
+        function setAdminPassword(password) {
+            adminPassword = password;
+            localStorage.setItem('adminPassword', password);
+        }
+        
+        function clearAdminPassword() {
+            adminPassword = null;
+            localStorage.removeItem('adminPassword');
+        }
+        
+        function isPasswordSet() {
+            return adminPassword && adminPassword.length > 0;
+        }
+        
+        async function adminLogin() {
+            const password = document.getElementById('adminPassword').value;
+            if (!password) {
+                showError('请输入管理密码');
+                return;
+            }
+            
+            try {
+                // 通过尝试调用API来验证密码
+                const response = await fetch(`${API_BASE}/auth/config`, {
+                    headers: {
+                        'Authorization': `Bearer ${password}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('管理密码错误');
+                }
+                
+                setAdminPassword(password);
+                showEmailManagement();
+                showSuccess('管理员登录成功');
+                
+            } catch (error) {
+                showError('管理员登录失败: ' + error.message);
+            }
+        }
+        
+        function handleAdminPasswordKeyPress(event) {
+            if (event.key === 'Enter') {
+                adminLogin();
+            }
+        }
+        
+        function showAdminLogin() {
+            document.getElementById('adminLoginCard').classList.remove('hidden');
+            document.getElementById('loginCard').classList.add('hidden');
+            document.getElementById('emailCard').classList.add('hidden');
+            document.getElementById('detailCard').classList.add('hidden');
+            document.getElementById('adminPassword').focus();
+        }
+        
+        function showEmailManagement() {
+            document.getElementById('adminLoginCard').classList.add('hidden');
+            
+            if (Object.keys(savedAccounts).length > 0) {
+                updateAccountSelector();
+                document.getElementById('loginCard').classList.remove('hidden');
+            } else {
+                document.getElementById('loginCard').classList.remove('hidden');
+            }
+        }
+
         function switchTab(tab) {
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
@@ -862,17 +945,36 @@ example2@outlook.com----password2----refresh_token2----client_id2"></textarea>
         }
 
         async function makeRequest(url, options = {}) {
+            const headers = {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+            };
+            
+            // 添加认证头（直接使用管理密码作为Bearer令牌）
+            if (adminPassword && !url.includes('/auth/config')) {
+                headers['Authorization'] = `Bearer ${adminPassword}`;
+            }
+            
             const defaultOptions = {
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                    'Access-Control-Allow-Headers': 'Content-Type'
+                    ...headers,
+                    ...(options.headers || {})
                 },
                 ...options
             };
             
-            return fetch(url, defaultOptions);
+            const response = await fetch(url, defaultOptions);
+            
+            // 如果返回401，清除密码并重定向到登录
+            if (response.status === 401) {
+                clearAdminPassword();
+                showAdminLogin();
+                throw new Error('管理密码错误，请重新登录');
+            }
+            
+            return response;
         }
 
         async function login() {
@@ -981,6 +1083,12 @@ example2@outlook.com----password2----refresh_token2----client_id2"></textarea>
         }
 
         function showLoginSuccess() {
+            // 这个函数现在处理邮箱账户登录成功后的逻辑
+            if (!isPasswordSet()) {
+                showAdminLogin();
+                return;
+            }
+            
             document.getElementById('loginCard').classList.add('hidden');
             document.getElementById('emailCard').classList.remove('hidden');
             document.getElementById('userEmail').textContent = currentUser;
@@ -995,17 +1103,16 @@ example2@outlook.com----password2----refresh_token2----client_id2"></textarea>
 
         function logout() {
             currentUser = null;
-            document.getElementById('loginCard').classList.remove('hidden');
-            document.getElementById('emailCard').classList.add('hidden');
-            document.getElementById('detailCard').classList.add('hidden');
+            clearAdminPassword();
             
-            if (Object.keys(savedAccounts).length > 0) {
-                updateAccountSelector();
-            } else {
-                document.getElementById('email').value = '';
-                document.getElementById('refreshToken').value = '';
-                document.getElementById('clientId').value = '';
-            }
+            // 重定向到管理员登录页面
+            showAdminLogin();
+            
+            // 清空表单
+            document.getElementById('email').value = '';
+            document.getElementById('refreshToken').value = '';
+            document.getElementById('clientId').value = '';
+            document.getElementById('adminPassword').value = '';
         }
 
         let currentInboxPage = 1;
@@ -1258,8 +1365,11 @@ example2@outlook.com----password2----refresh_token2----client_id2"></textarea>
         }
 
         window.onload = function() {
-            if (Object.keys(savedAccounts).length > 0) {
-                updateAccountSelector();
+            // 检查管理员认证状态
+            if (isPasswordSet()) {
+                showEmailManagement();
+            } else {
+                showAdminLogin();
             }
         };
     </script>
