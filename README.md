@@ -1,4 +1,4 @@
-# 🚀 Outlook Manager
+# 📨 Outlook Manager
 > **outlook邮件管理服务** · 现代化OAuth2认证 · 一键Docker部署
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-00a393?style=flat-square&logo=fastapi)](https://fastapi.tiangolo.com/)
@@ -28,8 +28,8 @@
 ### 方式一：一键部署（推荐）
 
 ```bash
-# 🎯 最快 30 秒启动
-git clone <repository-url> && cd outlook-manager
+# 🎯 最快启动
+git clone https://github.com/oDaiSuno/OutlookManager.git && cd outlook-manager
 docker-compose up -d
 
 # 🌐 访问服务
@@ -200,3 +200,5 @@ docker-compose down -v && docker-compose up -d
 ---
 
 **⭐ 如果这个项目对你有帮助，请给我们一个星标！**
+
+[![Star History Chart](https://api.star-history.com/svg?repos=oDaiSuno/OutlookManager&type=Date)](https://www.star-history.com/#oDaiSuno/OutlookManager&Date)
