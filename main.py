@@ -524,7 +524,7 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/auth/config")
-async def get_auth_config():
+async def get_auth_config(current_admin: bool = Depends(get_current_admin)):
     """获取认证配置信息（用于前端判断认证状态）"""
     return get_config_info()
 
