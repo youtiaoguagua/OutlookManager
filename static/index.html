@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Outlook邮件客户端</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 300;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .input-group {
+            margin-bottom: 16px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            color: #555;
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e7ff;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-right: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #f8fafc;
+            color: #64748b;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .btn-secondary:hover {
+            background: #e2e8f0;
+        }
+        
+        .email-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid rgba(102, 126, 234, 0.1);
+        }
+        
+        .toolbar-left h2 {
+            margin: 0 0 4px 0;
+            color: #1e293b;
+            font-size: 1.4rem;
+            font-weight: 600;
+        }
+        
+        .user-email {
+            font-size: 0.9rem;
+            color: #667eea;
+            font-weight: 500;
+        }
+        
+        .toolbar-right {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .dual-view-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            height: calc(100vh - 320px);
+            min-height: 500px;
+            max-height: 700px;
+        }
+        
+        .email-column {
+            background: rgba(248, 250, 252, 0.8);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid rgba(226, 232, 240, 0.6);
+            overflow: hidden;
+        }
+        
+        .column-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(203, 213, 225, 0.5);
+        }
+        
+        .column-header h3 {
+            margin: 0;
+            color: #334155;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        
+        .email-count {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            min-width: 24px;
+            text-align: center;
+        }
+        
+        .email-list {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 0;
+            margin: 0;
+            max-height: calc(100% - 60px);
+            min-height: 200px;
+        }
+        
+        .email-list::-webkit-scrollbar {
+            width: 8px;
+            background: transparent;
+        }
+        
+        .email-list::-webkit-scrollbar-track {
+            background: rgba(226, 232, 240, 0.2);
+            border-radius: 4px;
+            margin: 4px 0;
+        }
+        
+        .email-list::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            min-height: 30px;
+        }
+        
+        .email-list::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #5a67d8, #6b46c1);
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+        
+        .email-list::-webkit-scrollbar-thumb:active {
+            background: linear-gradient(135deg, #4c51bf, #553c9a);
+        }
+        
+        /* Firefox滚动条样式 */
+        .email-list {
+            scrollbar-width: thin;
+            scrollbar-color: #667eea rgba(226, 232, 240, 0.2);
+        }
+        
+        .email-item {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 0.9));
+            margin-bottom: 8px;
+            padding: 16px;
+            border-radius: 16px;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            border: 1px solid rgba(226, 232, 240, 0.6);
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.08);
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(8px);
+        }
+        
+        .email-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            opacity: 0;
+            transition: all 0.4s ease;
+            border-radius: 0 2px 2px 0;
+        }
+        
+        .email-item::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(102, 126, 234, 0.03), transparent);
+            opacity: 0;
+            transition: all 0.6s ease;
+            transform: rotate(-45deg);
+        }
+        
+        .email-item:hover {
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.15);
+            border-color: #667eea;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 1), rgba(248, 250, 252, 0.95));
+        }
+        
+        .email-item:hover::before {
+            opacity: 1;
+            width: 6px;
+        }
+        
+        .email-item:hover::after {
+            opacity: 1;
+            transform: rotate(-45deg) translate(50%, 50%);
+        }
+        
+        .email-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .email-content-wrapper {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        
+        .sender-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 16px;
+            flex-shrink: 0;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+            position: relative;
+        }
+        
+        .sender-avatar::after {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            border-radius: 50%;
+            padding: 2px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask-composite: exclude;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .email-item:hover .sender-avatar::after {
+            opacity: 0.6;
+        }
+        
+        .email-info {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .email-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 6px;
+            gap: 8px;
+        }
+        
+        .email-subject {
+            font-weight: 600;
+            color: #1e293b;
+            font-size: 14px;
+            line-height: 1.3;
+            margin: 0;
+            flex: 1;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            word-break: break-word;
+        }
+        
+        .email-meta {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+        
+        .email-date {
+            color: #667eea;
+            font-size: 11px;
+            font-weight: 500;
+            background: rgba(102, 126, 234, 0.1);
+            padding: 3px 8px;
+            border-radius: 12px;
+            white-space: nowrap;
+            border: 1px solid rgba(102, 126, 234, 0.2);
+        }
+        
+        .email-status {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+        
+        .status-indicator {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #10b981;
+        }
+        
+        .status-indicator.unread {
+            background: #ef4444;
+            box-shadow: 0 0 6px rgba(239, 68, 68, 0.4);
+        }
+        
+        .attachment-icon {
+            font-size: 10px;
+            color: #8b5cf6;
+        }
+        
+        .email-from {
+            color: #64748b;
+            font-size: 12px;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 500;
+        }
+        
+        .email-preview {
+            color: #94a3b8;
+            font-size: 11px;
+            line-height: 1.3;
+            display: -webkit-box;
+            -webkit-line-clamp: 1;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            font-style: italic;
+        }
+        
+        .email-detail-header {
+            border-bottom: 2px solid rgba(102, 126, 234, 0.1);
+            padding-bottom: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .email-meta-info p {
+            margin: 8px 0;
+            color: #64748b;
+            font-size: 14px;
+        }
+        
+        .email-meta-info strong {
+            color: #334155;
+            margin-right: 8px;
+        }
+        
+        .email-content-header {
+            margin-bottom: 16px;
+        }
+        
+        .content-type-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        
+        .content-tab {
+            padding: 8px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            background: white;
+            color: #64748b;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .content-tab:hover {
+            border-color: #667eea;
+            color: #667eea;
+        }
+        
+        .content-tab.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-color: transparent;
+        }
+        
+        .email-content-container {
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        .html-content iframe {
+            border: none;
+            background: white;
+        }
+        
+        .plain-content,
+        .raw-content {
+            padding: 20px;
+        }
+        
+        .plain-content pre {
+            margin: 0;
+            color: #374151;
+        }
+        
+        .raw-content pre {
+            margin: 0;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            line-height: 1.4;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px 20px;
+            color: #64748b;
+            font-style: italic;
+        }
+        
+        .email-list .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            min-height: 150px;
+        }
+        
+        .email-list .error {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            min-height: 150px;
+            background: #fee2e2;
+            color: #dc2626;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 10px;
+            border: 1px solid #fecaca;
+        }
+        
+        .error {
+            background: #fee2e2;
+            color: #dc2626;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            border: 1px solid #fecaca;
+        }
+        
+        .success {
+            background: #dcfce7;
+            color: #16a34a;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            border: 1px solid #bbf7d0;
+        }
+        
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            margin-top: 20px;
+        }
+        
+        .hidden { display: none; }
+        
+        .login-tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .tab-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            color: #64748b;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .tab-btn.active {
+            color: #667eea;
+            border-bottom: 2px solid #667eea;
+        }
+        
+        .tab-content {
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes slideInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .email-item {
+            animation: slideInUp 0.4s ease-out;
+        }
+        
+        .email-item:nth-child(odd) {
+            animation-delay: 0.1s;
+        }
+        
+        .email-item:nth-child(even) {
+            animation-delay: 0.2s;
+        }
+        
+        @media (max-width: 1024px) {
+            .dual-view-container {
+                grid-template-columns: 1fr;
+                gap: 16px;
+                height: auto;
+                min-height: 400px;
+                max-height: none;
+            }
+            
+            .email-column {
+                max-height: 450px;
+            }
+            
+            .email-list {
+                max-height: calc(100% - 80px);
+                min-height: 200px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .container { padding: 10px; }
+            .header h1 { font-size: 2rem; }
+            
+            .email-toolbar {
+                flex-direction: column;
+                gap: 12px;
+                align-items: stretch;
+                text-align: center;
+            }
+            
+            .toolbar-left h2 {
+                font-size: 1.2rem;
+            }
+            
+            .dual-view-container {
+                gap: 12px;
+                min-height: 300px;
+                max-height: none;
+            }
+            
+            .email-column {
+                padding: 16px;
+                max-height: 400px;
+            }
+            
+            .email-list {
+                max-height: calc(100% - 70px);
+                min-height: 150px;
+            }
+            
+            .column-header h3 {
+                font-size: 1rem;
+            }
+            
+            .email-item {
+                padding: 12px;
+                margin-bottom: 6px;
+            }
+            
+            .email-content-wrapper {
+                gap: 8px;
+            }
+            
+            .sender-avatar {
+                width: 32px;
+                height: 32px;
+                font-size: 14px;
+            }
+            
+            .email-subject {
+                font-size: 13px;
+            }
+            
+            .email-date {
+                font-size: 10px;
+                padding: 2px 6px;
+            }
+            
+            .email-from {
+                font-size: 11px;
+            }
+            
+            .email-preview {
+                font-size: 10px;
+            }
+            
+            .pagination {
+                justify-content: center;
+                gap: 4px;
+            }
+            
+            .pagination .btn {
+                padding: 8px 12px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📧 Outlook邮件客户端</h1>
+        </div>
+
+        <div id="loginCard" class="card">
+            <h2>账户配置</h2>
+            
+            <div class="login-tabs">
+                <button class="tab-btn active" onclick="switchTab('single')">单账户登录</button>
+                <button class="tab-btn" onclick="switchTab('batch')">批量登录</button>
+            </div>
+
+            <div id="singleLogin" class="tab-content">
+                <div class="input-group">
+                    <label>邮箱地址</label>
+                    <input type="email" id="email" placeholder="example@outlook.com">
+                </div>
+                <div class="input-group">
+                    <label>刷新令牌</label>
+                    <textarea id="refreshToken" rows="3" placeholder="从Azure应用获取的refresh_token"></textarea>
+                </div>
+                <div class="input-group">
+                    <label>客户端ID</label>
+                    <input type="text" id="clientId" placeholder="Azure应用的client_id">
+                </div>
+                <button class="btn btn-primary" onclick="login()">验证并登录</button>
+            </div>
+
+            <div id="batchLogin" class="tab-content hidden">
+                <div class="input-group">
+                    <label>批量账户信息</label>
+                    <p style="font-size: 12px; color: #64748b; margin-bottom: 8px;">
+                        每行格式：邮箱----密码----刷新令牌----客户端ID
+                    </p>
+                    <textarea id="batchAccounts" rows="6" placeholder="example1@outlook.com----password1----refresh_token1----client_id1
+example2@outlook.com----password2----refresh_token2----client_id2"></textarea>
+                </div>
+                <button class="btn btn-primary" onclick="batchLogin()">批量验证账户</button>
+            </div>
+
+            <div id="accountSelector" class="hidden">
+                <div class="input-group">
+                    <label>选择账户</label>
+                    <select id="accountList"></select>
+                </div>
+                <button class="btn btn-primary" onclick="switchAccount()">选中账户</button>
+                <button class="btn btn-secondary" onclick="showLoginForm()">添加账户</button>
+            </div>
+        </div>
+
+        <div id="emailCard" class="card hidden">
+            <div class="email-toolbar">
+                <div class="toolbar-left">
+                    <h2>📧 邮件管理</h2>
+                    <span id="userEmail" class="user-email"></span>
+                </div>
+                <div class="toolbar-right">
+                    <button class="btn btn-secondary" onclick="loadDualEmails()">🔄 刷新</button>
+                    <button class="btn btn-secondary" onclick="logout()">退出登录</button>
+                </div>
+            </div>
+
+            <div class="dual-view-container">
+                <div class="email-column">
+                    <div class="column-header">
+                        <h3>📥 收件箱</h3>
+                        <span id="inboxCount" class="email-count">0</span>
+                    </div>
+                    <div id="inboxList" class="email-list loading">
+                        <p>加载中...</p>
+                    </div>
+                    <div id="inboxPagination" class="pagination hidden"></div>
+                </div>
+
+                <div class="email-column">
+                    <div class="column-header">
+                        <h3>🗑️ 垃圾邮件</h3>
+                        <span id="junkCount" class="email-count">0</span>
+                    </div>
+                    <div id="junkList" class="email-list loading">
+                        <p>加载中...</p>
+                    </div>
+                    <div id="junkPagination" class="pagination hidden"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="detailCard" class="card hidden">
+            <button class="btn btn-secondary" onclick="backToList()">← 返回列表</button>
+            <div id="emailDetail" class="email-detail"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '';
+        let currentUser = null;
+        let currentPage = 1;
+        let totalEmails = 0;
+        let savedAccounts = JSON.parse(localStorage.getItem('savedAccounts') || '{}');
+
+        function formatEmailDate(dateString) {
+            try {
+                if (!dateString) return '未知时间';
+                
+                // 处理各种可能的日期格式
+                let date = new Date(dateString);
+                
+                // 验证日期是否有效
+                if (isNaN(date.getTime())) {
+                    // 尝试解析ISO格式但没有时区信息的情况
+                    if (dateString.includes('T') && !dateString.includes('Z') && !dateString.includes('+')) {
+                        date = new Date(dateString + 'Z');
+                    }
+                    
+                    if (isNaN(date.getTime())) {
+                        return '日期格式错误';
+                    }
+                }
+                
+                const now = new Date();
+                const diffMs = now - date;
+                const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                
+                // 根据时间差显示不同格式
+                if (diffDays === 0) {
+                    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+                } else if (diffDays === 1) {
+                    return '昨天 ' + date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+                } else if (diffDays < 7) {
+                    return `${diffDays}天前`;
+                } else if (diffDays < 365) {
+                    return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+                } else {
+                    return date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'short', day: 'numeric' });
+                }
+            } catch (error) {
+                console.error('Date formatting error:', error, 'Original date:', dateString);
+                return '时间解析失败';
+            }
+        }
+
+        function showError(msg) {
+            const existing = document.querySelector('.error');
+            if (existing) existing.remove();
+            
+            const error = document.createElement('div');
+            error.className = 'error';
+            error.textContent = msg;
+            document.querySelector('.container').insertBefore(error, document.querySelector('.card'));
+            setTimeout(() => error.remove(), 5000);
+        }
+
+        function showSuccess(msg) {
+            const existing = document.querySelector('.success');
+            if (existing) existing.remove();
+            
+            const success = document.createElement('div');
+            success.className = 'success';
+            success.textContent = msg;
+            document.querySelector('.container').insertBefore(success, document.querySelector('.card'));
+            setTimeout(() => success.remove(), 3000);
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tab === 'single' ? 'singleLogin' : 'batchLogin').classList.remove('hidden');
+        }
+
+        async function makeRequest(url, options = {}) {
+            const defaultOptions = {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type'
+                },
+                ...options
+            };
+            
+            return fetch(url, defaultOptions);
+        }
+
+        async function login() {
+            const email = document.getElementById('email').value;
+            const refreshToken = document.getElementById('refreshToken').value;
+            const clientId = document.getElementById('clientId').value;
+
+            if (!email || !refreshToken || !clientId) {
+                showError('请填写所有必需字段');
+                return;
+            }
+
+            try {
+                const response = await makeRequest(`${API_BASE}/accounts`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        email,
+                        refresh_token: refreshToken,
+                        client_id: clientId
+                    })
+                });
+
+                if (!response.ok) throw new Error('验证失败');
+                
+                savedAccounts[email] = { refresh_token: refreshToken, client_id: clientId };
+                localStorage.setItem('savedAccounts', JSON.stringify(savedAccounts));
+                
+                currentUser = email;
+                showLoginSuccess();
+                
+            } catch (error) {
+                showError('登录失败: ' + error.message);
+            }
+        }
+
+        async function batchLogin() {
+            const batchText = document.getElementById('batchAccounts').value.trim();
+            if (!batchText) {
+                showError('请输入账户信息');
+                return;
+            }
+
+            const lines = batchText.split('\n').filter(line => line.trim());
+            let successCount = 0;
+            let failCount = 0;
+
+            for (const line of lines) {
+                const parts = line.split('----').map(p => p.trim());
+                if (parts.length !== 4) {
+                    failCount++;
+                    continue;
+                }
+
+                const [email, password, refreshToken, clientId] = parts;
+                
+                try {
+                    const response = await makeRequest(`${API_BASE}/accounts`, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            email,
+                            refresh_token: refreshToken,
+                            client_id: clientId
+                        })
+                    });
+
+                    if (response.ok) {
+                        savedAccounts[email] = { refresh_token: refreshToken, client_id: clientId };
+                        successCount++;
+                    } else {
+                        failCount++;
+                    }
+                } catch (error) {
+                    failCount++;
+                }
+            }
+
+            localStorage.setItem('savedAccounts', JSON.stringify(savedAccounts));
+            
+            if (successCount > 0) {
+                showSuccess(`成功验证 ${successCount} 个账户${failCount > 0 ? `，失败 ${failCount} 个` : ''}`);
+                updateAccountSelector();
+            } else {
+                showError('所有账户验证失败');
+            }
+        }
+
+        function updateAccountSelector() {
+            const selector = document.getElementById('accountList');
+            selector.innerHTML = Object.keys(savedAccounts).map(email => 
+                `<option value="${email}">${email}</option>`
+            ).join('');
+            
+            if (Object.keys(savedAccounts).length > 0) {
+                document.getElementById('accountSelector').classList.remove('hidden');
+                document.getElementById('singleLogin').classList.add('hidden');
+                document.getElementById('batchLogin').classList.add('hidden');
+            }
+        }
+
+        function switchAccount() {
+            const selectedEmail = document.getElementById('accountList').value;
+            if (selectedEmail) {
+                currentUser = selectedEmail;
+                showLoginSuccess();
+            }
+        }
+
+        function showLoginSuccess() {
+            document.getElementById('loginCard').classList.add('hidden');
+            document.getElementById('emailCard').classList.remove('hidden');
+            document.getElementById('userEmail').textContent = currentUser;
+            showSuccess(`已登录: ${currentUser}`);
+            loadDualEmails();
+        }
+
+        function showLoginForm() {
+            document.getElementById('accountSelector').classList.add('hidden');
+            document.getElementById('singleLogin').classList.remove('hidden');
+        }
+
+        function logout() {
+            currentUser = null;
+            document.getElementById('loginCard').classList.remove('hidden');
+            document.getElementById('emailCard').classList.add('hidden');
+            document.getElementById('detailCard').classList.add('hidden');
+            
+            if (Object.keys(savedAccounts).length > 0) {
+                updateAccountSelector();
+            } else {
+                document.getElementById('email').value = '';
+                document.getElementById('refreshToken').value = '';
+                document.getElementById('clientId').value = '';
+            }
+        }
+
+        let currentInboxPage = 1;
+        let currentJunkPage = 1;
+
+        async function loadDualEmails() {
+            const inboxList = document.getElementById('inboxList');
+            const junkList = document.getElementById('junkList');
+            
+            inboxList.innerHTML = '<div class="loading"><p>加载中...</p></div>';
+            junkList.innerHTML = '<div class="loading"><p>加载中...</p></div>';
+
+            try {
+                const response = await makeRequest(`${API_BASE}/emails/${currentUser}/dual-view?inbox_page=${currentInboxPage}&junk_page=${currentJunkPage}&page_size=20`);
+                if (!response.ok) throw new Error('获取邮件失败');
+                
+                const data = await response.json();
+                
+                // 更新邮件计数
+                document.getElementById('inboxCount').textContent = data.inbox_total;
+                document.getElementById('junkCount').textContent = data.junk_total;
+                
+                // 渲染收件箱邮件
+                if (data.inbox_emails.length === 0) {
+                    inboxList.innerHTML = '<div class="loading"><p>暂无邮件</p></div>';
+                } else {
+                    inboxList.innerHTML = data.inbox_emails.map(email => createEmailItem(email)).join('');
+                }
+                
+                // 渲染垃圾邮件
+                if (data.junk_emails.length === 0) {
+                    junkList.innerHTML = '<div class="loading"><p>暂无邮件</p></div>';
+                } else {
+                    junkList.innerHTML = data.junk_emails.map(email => createEmailItem(email)).join('');
+                }
+
+                updateDualPagination(data.inbox_total, data.junk_total);
+                
+            } catch (error) {
+                inboxList.innerHTML = '<div class="error">加载失败: ' + error.message + '</div>';
+                junkList.innerHTML = '<div class="error">加载失败: ' + error.message + '</div>';
+            }
+        }
+
+        function createEmailItem(email) {
+            const readStatus = email.is_read ? 'read' : 'unread';
+            const attachmentIcon = email.has_attachments ? '<span class="attachment-icon">📎</span>' : '';
+            
+            return `
+                <div class="email-item" onclick="showEmailDetail('${email.message_id}')">
+                    <div class="email-content-wrapper">
+                        <div class="sender-avatar">
+                            ${email.sender_initial}
+                        </div>
+                        <div class="email-info">
+                            <div class="email-header">
+                                <h3 class="email-subject">${email.subject || '(无主题)'}</h3>
+                                <div class="email-meta">
+                                    <span class="email-date">${formatEmailDate(email.date)}</span>
+                                    <div class="email-status">
+                                        <div class="status-indicator ${readStatus}"></div>
+                                        ${attachmentIcon}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="email-from">📧 ${email.from_email}</div>
+                            <div class="email-preview">点击查看邮件详情...</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function loadInboxPage(page) {
+            currentInboxPage = page;
+            await loadDualEmails();
+        }
+
+        async function loadJunkPage(page) {
+            currentJunkPage = page;
+            await loadDualEmails();
+        }
+
+        function sanitizeHTML(html) {
+            // 创建一个临时div来解析HTML
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            
+            // 移除所有script标签
+            const scripts = tempDiv.querySelectorAll('script');
+            scripts.forEach(script => script.remove());
+            
+            // 移除可能的危险属性
+            const allElements = tempDiv.querySelectorAll('*');
+            allElements.forEach(element => {
+                // 移除事件处理属性
+                const attrs = [...element.attributes];
+                attrs.forEach(attr => {
+                    if (attr.name.startsWith('on') || attr.name === 'javascript:') {
+                        element.removeAttribute(attr.name);
+                    }
+                });
+            });
+            
+            return tempDiv.innerHTML;
+        }
+
+        function renderEmailContent(email) {
+            const hasHtml = email.body_html && email.body_html.trim();
+            const hasPlain = email.body_plain && email.body_plain.trim();
+            
+            if (!hasHtml && !hasPlain) {
+                return '<p style="color: #94a3b8; font-style: italic;">此邮件无内容</p>';
+            }
+            
+            // 如果有HTML内容，提供切换选项
+            if (hasHtml) {
+                const sanitizedHtml = sanitizeHTML(email.body_html);
+                
+                return `
+                    <div class="email-content-header">
+                        <div class="content-type-tabs">
+                            <button class="content-tab active" onclick="showHtmlContent()" id="htmlTab">
+                                🎨 HTML视图
+                            </button>
+                            ${hasPlain ? '<button class="content-tab" onclick="showPlainContent()" id="plainTab">📝 纯文本</button>' : ''}
+                            <button class="content-tab" onclick="showRawContent()" id="rawTab">
+                                🔍 源码
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="htmlContent" class="email-content html-content">
+                        <iframe srcdoc="${sanitizedHtml.replace(/"/g, '&quot;')}" 
+                                style="width: 100%; min-height: 400px; border: 1px solid #e2e8f0; border-radius: 8px;"
+                                sandbox="allow-same-origin">
+                        </iframe>
+                    </div>
+                    
+                    ${hasPlain ? `
+                    <div id="plainContent" class="email-content plain-content hidden">
+                        <pre style="white-space: pre-wrap; font-family: inherit;">${email.body_plain}</pre>
+                    </div>
+                    ` : ''}
+                    
+                    <div id="rawContent" class="email-content raw-content hidden">
+                        <pre style="background: #1e293b; color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 12px;">${email.body_html.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+                    </div>
+                `;
+            } else {
+                // 只有纯文本
+                return `
+                    <div class="email-content plain-content">
+                        <pre style="white-space: pre-wrap; font-family: inherit; line-height: 1.6;">${email.body_plain}</pre>
+                    </div>
+                `;
+            }
+        }
+
+        function showHtmlContent() {
+            document.querySelectorAll('.content-tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.email-content').forEach(content => content.classList.add('hidden'));
+            
+            document.getElementById('htmlTab').classList.add('active');
+            document.getElementById('htmlContent').classList.remove('hidden');
+        }
+
+        function showPlainContent() {
+            document.querySelectorAll('.content-tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.email-content').forEach(content => content.classList.add('hidden'));
+            
+            document.getElementById('plainTab').classList.add('active');
+            document.getElementById('plainContent').classList.remove('hidden');
+        }
+
+        function showRawContent() {
+            document.querySelectorAll('.content-tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.email-content').forEach(content => content.classList.add('hidden'));
+            
+            document.getElementById('rawTab').classList.add('active');
+            document.getElementById('rawContent').classList.remove('hidden');
+        }
+
+        async function showEmailDetail(messageId) {
+            document.getElementById('emailCard').classList.add('hidden');
+            document.getElementById('detailCard').classList.remove('hidden');
+            
+            const detailDiv = document.getElementById('emailDetail');
+            detailDiv.innerHTML = '<div class="loading"><p>加载中...</p></div>';
+
+            try {
+                const response = await makeRequest(`${API_BASE}/emails/${currentUser}/${messageId}`);
+                if (!response.ok) throw new Error('获取邮件详情失败');
+                
+                const email = await response.json();
+                
+                detailDiv.innerHTML = `
+                    <div class="email-detail-header">
+                        <h3 style="margin-bottom: 16px; color: #1e293b;">${email.subject || '(无主题)'}</h3>
+                        <div class="email-meta-info">
+                            <p><strong>发件人:</strong> ${email.from_email}</p>
+                            <p><strong>收件人:</strong> ${email.to_email}</p>
+                            <p><strong>日期:</strong> ${formatEmailDate(email.date)} (${new Date(email.date).toLocaleString()})</p>
+                        </div>
+                    </div>
+                    <div class="email-content-container">
+                        ${renderEmailContent(email)}
+                    </div>
+                `;
+                
+            } catch (error) {
+                detailDiv.innerHTML = '<div class="error">加载失败: ' + error.message + '</div>';
+            }
+        }
+
+        function backToList() {
+            document.getElementById('detailCard').classList.add('hidden');
+            document.getElementById('emailCard').classList.remove('hidden');
+        }
+
+        function updateDualPagination(inboxTotal, junkTotal) {
+            const inboxPagination = document.getElementById('inboxPagination');
+            const junkPagination = document.getElementById('junkPagination');
+            
+            // 更新收件箱分页
+            const inboxPages = Math.ceil(inboxTotal / 20);
+            if (inboxPages <= 1) {
+                inboxPagination.classList.add('hidden');
+            } else {
+                inboxPagination.classList.remove('hidden');
+                inboxPagination.innerHTML = `
+                    <button class="btn btn-secondary" onclick="loadInboxPage(${currentInboxPage - 1})" ${currentInboxPage === 1 ? 'disabled' : ''}>‹</button>
+                    <span>${currentInboxPage}/${inboxPages}</span>
+                    <button class="btn btn-secondary" onclick="loadInboxPage(${currentInboxPage + 1})" ${currentInboxPage === inboxPages ? 'disabled' : ''}>›</button>
+                `;
+            }
+            
+            // 更新垃圾箱分页
+            const junkPages = Math.ceil(junkTotal / 20);
+            if (junkPages <= 1) {
+                junkPagination.classList.add('hidden');
+            } else {
+                junkPagination.classList.remove('hidden');
+                junkPagination.innerHTML = `
+                    <button class="btn btn-secondary" onclick="loadJunkPage(${currentJunkPage - 1})" ${currentJunkPage === 1 ? 'disabled' : ''}>‹</button>
+                    <span>${currentJunkPage}/${junkPages}</span>
+                    <button class="btn btn-secondary" onclick="loadJunkPage(${currentJunkPage + 1})" ${currentJunkPage === junkPages ? 'disabled' : ''}>›</button>
+                `;
+            }
+        }
+
+        window.onload = function() {
+            if (Object.keys(savedAccounts).length > 0) {
+                updateAccountSelector();
+            }
+        };
+    </script>
+</body>
+</html>
