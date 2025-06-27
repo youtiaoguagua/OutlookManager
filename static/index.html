@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Outlook邮件客户端</title>
     <style>
+        /* 基础样式 */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
         body {
@@ -12,6 +13,7 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             color: #333;
+            line-height: 1.5;
         }
         
         .container {
@@ -620,6 +622,17 @@
                 text-align: center;
             }
             
+            .toolbar-right {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+            
+            .account-select {
+                min-width: 100%;
+                margin-bottom: 8px;
+            }
+            
             .toolbar-left h2 {
                 font-size: 1.2rem;
             }
@@ -686,6 +699,584 @@
                 font-size: 12px;
             }
         }
+        
+        .account-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding: 12px 16px;
+            background: #f8fafc;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+        
+        .account-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .account-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #334155;
+            margin: 0;
+            display: flex;
+            align-items: center;
+        }
+        
+        .account-count {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 24px;
+            height: 24px;
+            padding: 0 8px;
+            margin-left: 8px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .account-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .btn-icon {
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            background: white;
+            color: #64748b;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .btn-icon:hover {
+            background: #f8fafc;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+        
+        .btn-icon svg {
+            transition: transform 0.3s ease;
+        }
+        
+        .btn-icon:hover svg {
+            transform: scale(1.1);
+        }
+        
+        .btn-danger {
+            color: #ef4444;
+            border-color: #fee2e2;
+        }
+        
+        .btn-danger:hover {
+            background: #fee2e2;
+        }
+        
+        .search-container {
+            position: relative;
+            width: 200px;
+        }
+        
+        .search-container input {
+            width: 100%;
+            padding: 8px 12px 8px 32px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 13px;
+            transition: all 0.3s ease;
+        }
+        
+        .search-container input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            width: 240px;
+        }
+        
+        .search-icon {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+        }
+        
+        .account-filter {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .filter-label {
+            color: #64748b;
+            font-size: 13px;
+        }
+        
+        .filter-btn {
+            padding: 6px 12px;
+            border: 1px solid #e2e8f0;
+            background: white;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #64748b;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .filter-btn:hover {
+            border-color: #cbd5e1;
+            background: #f8fafc;
+        }
+        
+        .filter-btn.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-color: transparent;
+        }
+        
+        .account-selection {
+            display: flex;
+            align-items: center;
+        }
+        
+        .select-all {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            color: #64748b;
+            cursor: pointer;
+        }
+        
+        .account-list {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 16px;
+            max-height: 400px;
+            overflow-y: auto;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            background: white;
+        }
+        
+        .account-list.loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 200px;
+            color: #64748b;
+            font-style: italic;
+            background: #f8fafc;
+        }
+        
+        .account-item {
+            display: flex;
+            align-items: center;
+            padding: 14px 16px;
+            border-bottom: 1px solid #e2e8f0;
+            transition: all 0.3s ease;
+            background: white;
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .account-item:nth-child(even) {
+            background: #f8fafc;
+        }
+        
+        .account-item:last-child {
+            border-bottom: none;
+        }
+        
+        .account-item:hover {
+            background: #f1f5f9;
+        }
+        
+        .account-item.filtered {
+            display: none;
+        }
+        
+        .account-checkbox {
+            margin-right: 12px;
+            width: 18px;
+            height: 18px;
+            accent-color: #667eea;
+            cursor: pointer;
+        }
+        
+        .account-email {
+            flex: 1;
+            font-weight: 500;
+            color: #334155;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+        
+        .account-email:hover {
+            color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+        }
+        
+        .account-status {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            margin-left: 8px;
+            min-width: 60px;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+        
+        .status-active {
+            background: #dcfce7;
+            color: #16a34a;
+            border: 1px solid #bbf7d0;
+        }
+        
+        .status-active::before {
+            content: '';
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #16a34a;
+        }
+        
+        .status-inactive {
+            background: #fee2e2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+        }
+        
+        .status-inactive::before {
+            content: '';
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #dc2626;
+        }
+        
+        .status-unknown {
+            background: #f3f4f6;
+            color: #64748b;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .status-unknown::before {
+            content: '';
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #64748b;
+        }
+        
+        .status-checking {
+            background: #e0f2fe;
+            color: #0284c7;
+            border: 1px solid #bae6fd;
+            animation: pulse 1.5s infinite;
+        }
+        
+        .status-checking::before {
+            content: '';
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #0284c7;
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes blink {
+            0% { opacity: 0.4; }
+            50% { opacity: 1; }
+            100% { opacity: 0.4; }
+        }
+        
+        .account-info {
+            font-size: 13px;
+            color: #64748b;
+            font-style: italic;
+            text-align: center;
+            padding: 8px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .account-info p {
+            margin: 0;
+        }
+        
+        /* 邮箱切换器样式 */
+        .account-switcher {
+            margin-right: 12px;
+        }
+        
+        .account-select {
+            padding: 8px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            background: white;
+            color: #334155;
+            font-size: 13px;
+            min-width: 180px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .account-select:hover {
+            border-color: #cbd5e1;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+        
+        .account-select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        /* 验证结果样式 */
+        .verification-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+            color: #64748b;
+            text-align: center;
+        }
+        
+        .verification-empty svg {
+            color: #94a3b8;
+            margin-bottom: 16px;
+        }
+        
+        .verification-summary {
+            display: flex;
+            align-items: center;
+            padding: 16px;
+            margin-bottom: 16px;
+            border-radius: 8px;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        .verification-summary.has-success {
+            background-color: #f0fdf4;
+            border: 1px solid #bbf7d0;
+        }
+        
+        .verification-summary.all-failed {
+            background-color: #fef2f2;
+            border: 1px solid #fecaca;
+        }
+        
+        .summary-icon {
+            margin-right: 16px;
+        }
+        
+        .has-success .summary-icon svg {
+            color: #16a34a;
+        }
+        
+        .all-failed .summary-icon svg {
+            color: #dc2626;
+        }
+        
+        .summary-text h4 {
+            margin: 0 0 4px 0;
+            font-size: 16px;
+            font-weight: 600;
+            color: #334155;
+        }
+        
+        .summary-text p {
+            margin: 0;
+            font-size: 14px;
+            color: #64748b;
+        }
+        
+        .verification-header {
+            display: grid;
+            grid-template-columns: 40px 1fr 180px;
+            padding: 12px 16px;
+            background: #f8fafc;
+            border-top: 1px solid #e2e8f0;
+            border-bottom: 1px solid #e2e8f0;
+            font-weight: 600;
+            color: #475569;
+            font-size: 13px;
+        }
+        
+        .verification-item {
+            display: grid;
+            grid-template-columns: 40px 1fr 180px;
+            padding: 12px 16px;
+            border-bottom: 1px solid #e2e8f0;
+            align-items: center;
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        .verification-item:last-child {
+            border-bottom: none;
+        }
+        
+        .verification-item.success {
+            background-color: #f8fafc;
+        }
+        
+        .verification-item.success:hover {
+            background-color: #f1f5f9;
+        }
+        
+        .verification-item.failed {
+            background-color: #fef2f2;
+            opacity: 0.8;
+        }
+        
+        .verification-checkbox-input {
+            width: 16px;
+            height: 16px;
+            accent-color: #667eea;
+        }
+        
+        .verification-email {
+            font-weight: 500;
+            color: #334155;
+        }
+        
+        .verification-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .verification-badge.success {
+            background-color: #dcfce7;
+            color: #16a34a;
+            border: 1px solid #bbf7d0;
+        }
+        
+        .verification-badge.error {
+            background-color: #fee2e2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+        }
+        
+        .verification-error-message {
+            margin-top: 6px;
+            font-size: 11px;
+            color: #dc2626;
+        }
+        
+        .verification-actions {
+            display: flex;
+            justify-content: flex-end;
+            padding: 16px;
+            border-top: 1px solid #e2e8f0;
+        }
+        
+        .verification-import-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        /* 批量登录样式 */
+        .batch-header {
+            margin-bottom: 16px;
+        }
+        
+        .batch-header h3 {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #334155;
+            margin: 0 0 8px 0;
+        }
+        
+        .batch-description {
+            color: #64748b;
+            font-size: 14px;
+            margin: 0;
+        }
+        
+        .btn-with-icon {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+        }
+        
+        .verification-results {
+            margin-top: 24px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            overflow: hidden;
+            background: white;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+        
+        /* 验证加载样式 */
+        .verification-loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+            color: #64748b;
+            text-align: center;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(102, 126, 234, 0.2);
+            border-radius: 50%;
+            border-top-color: #667eea;
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: 16px;
+        }
+        
+        .spinner-sm {
+            width: 16px;
+            height: 16px;
+            border-width: 2px;
+            margin: 0;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -711,6 +1302,7 @@
             <div class="login-tabs">
                 <button class="tab-btn active" onclick="switchTab('single')">单账户登录</button>
                 <button class="tab-btn" onclick="switchTab('batch')">批量登录</button>
+                <button class="tab-btn" onclick="switchTab('manage')">账户管理</button>
             </div>
 
             <div id="singleLogin" class="tab-content">
@@ -730,24 +1322,56 @@
             </div>
 
             <div id="batchLogin" class="tab-content hidden">
-                <div class="input-group">
-                    <label>批量账户信息</label>
-                    <p style="font-size: 12px; color: #64748b; margin-bottom: 8px;">
-                        每行格式：邮箱----密码----刷新令牌----客户端ID
-                    </p>
-                    <textarea id="batchAccounts" rows="6" placeholder="example1@outlook.com----password1----refresh_token1----client_id1
-example2@outlook.com----password2----refresh_token2----client_id2"></textarea>
+                <div class="batch-header">
+                    <h3>批量验证账户</h3>
+                    <p class="batch-description">每行一个账户，格式：邮箱----密码----刷新令牌----客户端ID</p>
                 </div>
-                <button class="btn btn-primary" onclick="batchLogin()">批量验证账户</button>
+                <div class="input-group">
+                    <textarea id="batchAccounts" rows="8" placeholder="example@outlook.com----password----refresh_token----client_id"></textarea>
+                </div>
+                <button class="btn btn-primary btn-with-icon" onclick="verifyBatchAccounts()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                    验证账户
+                </button>
+                <div id="verificationResultList" class="verification-results"></div>
             </div>
 
-            <div id="accountSelector" class="hidden">
-                <div class="input-group">
-                    <label>选择账户</label>
-                    <select id="accountList"></select>
+            <div id="accountManage" class="tab-content hidden">
+                <div class="account-header">
+                    <h3 class="account-title">账户管理 <span class="account-count" id="accountCount">0</span></h3>
+                    <div class="account-actions">
+                        <button class="btn btn-icon" onclick="loadAccountList(true)" title="刷新状态">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+                        </button>
+                        <button class="btn btn-icon btn-danger" onclick="deleteSelectedAccounts()" title="删除选中">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                        </button>
+                        <div class="search-container">
+                            <input type="text" id="accountSearch" placeholder="搜索账户..." onkeyup="filterAccounts()">
+                            <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        </div>
+                    </div>
                 </div>
-                <button class="btn btn-primary" onclick="switchAccount()">选中账户</button>
-                <button class="btn btn-secondary" onclick="showLoginForm()">添加账户</button>
+                <div class="account-toolbar">
+                    <div class="account-filter">
+                        <span class="filter-label">筛选:</span>
+                        <button class="filter-btn active" data-filter="all" onclick="filterByStatus('all')">全部</button>
+                        <button class="filter-btn" data-filter="active" onclick="filterByStatus('active')">有效</button>
+                        <button class="filter-btn" data-filter="inactive" onclick="filterByStatus('inactive')">无效</button>
+                    </div>
+                    <div class="account-selection">
+                        <label class="select-all">
+                            <input type="checkbox" id="selectAllAccounts" onchange="toggleSelectAll()">
+                            <span>全选</span>
+                        </label>
+                    </div>
+                </div>
+                <div id="accountList" class="account-list loading">
+                    <p>加载中...</p>
+                </div>
+                <div class="account-info">
+                    <p>提示: 点击账户邮箱可直接登录该账户</p>
+                </div>
             </div>
         </div>
 
@@ -758,7 +1382,13 @@ example2@outlook.com----password2----refresh_token2----client_id2"></textarea>
                     <span id="userEmail" class="user-email"></span>
                 </div>
                 <div class="toolbar-right">
+                    <div class="account-switcher">
+                        <select id="accountSwitcher" class="account-select" onchange="switchAccount()">
+                            <option value="">选择邮箱...</option>
+                        </select>
+                    </div>
                     <button class="btn btn-secondary" onclick="loadDualEmails()">🔄 刷新</button>
+                    <button class="btn btn-secondary" onclick="backToAccountManage()">📋 账户管理</button>
                     <button class="btn btn-secondary" onclick="logout()">退出登录</button>
                 </div>
             </div>
@@ -927,21 +1557,32 @@ example2@outlook.com----password2----refresh_token2----client_id2"></textarea>
         
         function showEmailManagement() {
             document.getElementById('adminLoginCard').classList.add('hidden');
+            document.getElementById('loginCard').classList.remove('hidden');
             
-            if (Object.keys(savedAccounts).length > 0) {
-                updateAccountSelector();
-                document.getElementById('loginCard').classList.remove('hidden');
-            } else {
-                document.getElementById('loginCard').classList.remove('hidden');
-            }
+            // 切换到账户管理标签页并加载账户列表
+            switchTab('manage');
+            loadAccountList();
         }
 
         function switchTab(tab) {
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
             
-            event.target.classList.add('active');
-            document.getElementById(tab === 'single' ? 'singleLogin' : 'batchLogin').classList.remove('hidden');
+            // 找到对应的按钮并激活
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                if (btn.textContent === (tab === 'single' ? '单账户登录' : tab === 'batch' ? '批量登录' : '账户管理')) {
+                    btn.classList.add('active');
+                }
+            });
+            
+            // 显示对应的内容区域
+            const contentId = tab === 'single' ? 'singleLogin' : tab === 'batch' ? 'batchLogin' : 'accountManage';
+            document.getElementById(contentId).classList.remove('hidden');
+            
+            // 如果切换到账户管理标签，自动加载账户列表
+            if (tab === 'manage' && document.getElementById('accountList').children.length <= 1) {
+                loadAccountList();
+            }
         }
 
         async function makeRequest(url, options = {}) {
@@ -1010,7 +1651,7 @@ example2@outlook.com----password2----refresh_token2----client_id2"></textarea>
             }
         }
 
-        async function batchLogin() {
+        async function verifyBatchAccounts() {
             const batchText = document.getElementById('batchAccounts').value.trim();
             if (!batchText) {
                 showError('请输入账户信息');
@@ -1018,67 +1659,357 @@ example2@outlook.com----password2----refresh_token2----client_id2"></textarea>
             }
 
             const lines = batchText.split('\n').filter(line => line.trim());
-            let successCount = 0;
-            let failCount = 0;
-
+            const resultList = document.getElementById('verificationResultList');
+            resultList.innerHTML = '<div class="verification-loading"><div class="spinner"></div><p>正在验证账户，请稍候...</p></div>';
+            
+            // 准备批量验证的账户列表
+            const accounts = [];
             for (const line of lines) {
                 const parts = line.split('----').map(p => p.trim());
-                if (parts.length !== 4) {
-                    failCount++;
-                    continue;
-                }
-
-                const [email, password, refreshToken, clientId] = parts;
+                if (parts.length !== 4) continue;
                 
-                try {
-                    const response = await makeRequest(`${API_BASE}/accounts`, {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            email,
-                            refresh_token: refreshToken,
-                            client_id: clientId
-                        })
-                    });
-
-                    if (response.ok) {
-                        savedAccounts[email] = { refresh_token: refreshToken, client_id: clientId };
-                        successCount++;
-                    } else {
-                        failCount++;
-                    }
-                } catch (error) {
-                    failCount++;
+                const [email, _, refreshToken, clientId] = parts;
+                accounts.push({
+                    email,
+                    refresh_token: refreshToken,
+                    client_id: clientId
+                });
+            }
+            
+            if (accounts.length === 0) {
+                resultList.innerHTML = '<div class="verification-empty"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg><p>无法解析账户信息，请检查格式</p></div>';
+                return;
+            }
+            
+            try {
+                const response = await makeRequest(`${API_BASE}/accounts/verify`, {
+                    method: 'POST',
+                    body: JSON.stringify({ accounts })
+                });
+                
+                if (!response.ok) throw new Error('验证请求失败');
+                
+                const results = await response.json();
+                renderVerificationResult(results);
+                
+            } catch (error) {
+                resultList.innerHTML = `<div class="verification-empty"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg><p>验证失败: ${error.message}</p></div>`;
+            }
+        }
+        
+        async function importSelectedAccounts() {
+            const checkboxes = document.querySelectorAll('.verification-checkbox-input:checked');
+            if (checkboxes.length === 0) {
+                showError('请至少选择一个要导入的账户');
+                return;
+            }
+            
+            const accounts = Array.from(checkboxes).map(cb => ({
+                email: cb.dataset.email,
+                refresh_token: cb.dataset.refreshToken,
+                client_id: cb.dataset.clientId
+            }));
+            
+            try {
+                // 添加导入中的视觉反馈
+                const importBtn = document.querySelector('.verification-import-btn');
+                const originalText = importBtn.innerHTML;
+                importBtn.innerHTML = '<div class="spinner spinner-sm"></div>导入中...';
+                importBtn.disabled = true;
+                
+                const response = await makeRequest(`${API_BASE}/accounts`, {
+                    method: 'POST',
+                    body: JSON.stringify(accounts)
+                });
+                
+                if (!response.ok) throw new Error('导入账户失败');
+                
+                const results = await response.json();
+                const successCount = Array.isArray(results) ? 
+                    results.filter(r => !r.message.startsWith('Error')).length : 
+                    (results.message.includes('success') ? 1 : 0);
+                
+                // 更新本地存储
+                for (const account of accounts) {
+                    savedAccounts[account.email] = {
+                        refresh_token: account.refresh_token,
+                        client_id: account.client_id
+                    };
                 }
+                localStorage.setItem('savedAccounts', JSON.stringify(savedAccounts));
+                
+                showSuccess(`成功导入 ${successCount} 个账户`);
+                
+                // 切换到账户管理标签页并刷新列表
+                setTimeout(() => {
+                    switchTab('manage');
+                    loadAccountList();
+                }, 1000);
+                
+            } catch (error) {
+                showError('导入账户失败: ' + error.message);
+                // 恢复按钮状态
+                document.querySelector('.verification-import-btn').innerHTML = originalText;
+                document.querySelector('.verification-import-btn').disabled = false;
             }
+        }
 
-            localStorage.setItem('savedAccounts', JSON.stringify(savedAccounts));
+        function renderVerificationResult(results) {
+            const container = document.getElementById('verificationResultList');
             
+            if (results.length === 0) {
+                container.innerHTML = '<div class="verification-empty"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg><p>未找到账户</p></div>';
+                return;
+            }
+            
+            const successCount = results.filter(r => r.status === 'success').length;
+            const failCount = results.length - successCount;
+            
+            let html = `<div class="verification-summary ${successCount > 0 ? 'has-success' : 'all-failed'}">
+                <div class="summary-icon">
+                    ${successCount > 0 ? 
+                    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>' : 
+                    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>'}
+                </div>
+                <div class="summary-text">
+                    <h4>验证结果</h4>
+                    <p>${successCount} 个成功, ${failCount} 个失败</p>
+                </div>
+            </div>`;
+            
+            // 添加表头
+            html += `<div class="verification-header">
+                <div class="verification-checkbox-header">
+                    <input type="checkbox" id="selectAllVerified" onchange="toggleSelectAllVerified()" ${successCount > 0 ? '' : 'disabled'}>
+                </div>
+                <div class="verification-email-header">邮箱地址</div>
+                <div class="verification-status-header">状态</div>
+            </div>`;
+            
+            // 添加验证结果项
+            results.forEach((result, index) => {
+                const isSuccess = result.status === 'success';
+                const delay = index * 50; // 添加延迟动画
+                
+                html += `
+                <div class="verification-item ${isSuccess ? 'success' : 'failed'}" style="animation-delay: ${delay}ms;">
+                    <div class="verification-checkbox">
+                        <input type="checkbox" class="verification-checkbox-input" ${isSuccess ? 'checked' : 'disabled'} 
+                            data-email="${result.email}" 
+                            ${isSuccess ? `data-refresh-token="${result.credentials.refresh_token}" data-client-id="${result.credentials.client_id}"` : ''}>
+                    </div>
+                    <div class="verification-email">${result.email}</div>
+                    <div class="verification-status">
+                        <span class="verification-badge ${isSuccess ? 'success' : 'error'}">
+                            ${isSuccess ? 
+                            '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>' : 
+                            '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>'}
+                            ${isSuccess ? '验证成功' : '验证失败'}
+                        </span>
+                        ${!isSuccess ? `<div class="verification-error-message">${result.message}</div>` : ''}
+                    </div>
+                </div>
+                `;
+            });
+            
+            // 添加导入按钮
             if (successCount > 0) {
-                showSuccess(`成功验证 ${successCount} 个账户${failCount > 0 ? `，失败 ${failCount} 个` : ''}`);
-                updateAccountSelector();
-            } else {
-                showError('所有账户验证失败');
+                html += `
+                <div class="verification-actions">
+                    <button class="btn btn-primary verification-import-btn" onclick="importSelectedAccounts()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                        导入选中账户
+                    </button>
+                </div>
+                `;
             }
-        }
-
-        function updateAccountSelector() {
-            const selector = document.getElementById('accountList');
-            selector.innerHTML = Object.keys(savedAccounts).map(email => 
-                `<option value="${email}">${email}</option>`
-            ).join('');
             
-            if (Object.keys(savedAccounts).length > 0) {
-                document.getElementById('accountSelector').classList.remove('hidden');
-                document.getElementById('singleLogin').classList.add('hidden');
-                document.getElementById('batchLogin').classList.add('hidden');
-            }
+            container.innerHTML = html;
         }
 
-        function switchAccount() {
-            const selectedEmail = document.getElementById('accountList').value;
-            if (selectedEmail) {
-                currentUser = selectedEmail;
-                showLoginSuccess();
+        function toggleSelectAllVerified() {
+            const isChecked = document.getElementById('selectAllVerified').checked;
+            const checkboxes = document.querySelectorAll('.verification-checkbox-input:not([disabled])');
+            
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = isChecked;
+            });
+        }
+
+        async function loadAccountList(forceCheck = false) {
+            const accountList = document.getElementById('accountList');
+            accountList.className = 'account-list loading';
+            accountList.innerHTML = '<p>加载中...</p>';
+            
+            try {
+                // 调用后端API获取账户列表及其状态
+                const response = await makeRequest(`${API_BASE}/accounts?check_status=${forceCheck}`);
+                
+                if (!response.ok) throw new Error('获取账户列表失败');
+                
+                const accounts = await response.json();
+                renderAccountList(accounts);
+                
+                // 更新账户数量显示
+                document.getElementById('accountCount').textContent = accounts.length;
+                
+            } catch (error) {
+                accountList.innerHTML = `<div class="error">加载失败: ${error.message}</div>`;
+            }
+        }
+        
+        function renderAccountList(accounts) {
+            const container = document.getElementById('accountList');
+            
+            if (accounts.length === 0) {
+                container.className = 'account-list';
+                container.innerHTML = '<div class="error">暂无账户，请先添加账户</div>';
+                return;
+            }
+            
+            let html = '';
+            
+            accounts.forEach((account, index) => {
+                const statusClass = account.status === 'active' ? 'status-active' : 
+                                   account.status === 'inactive' ? 'status-inactive' : 'status-unknown';
+                const statusText = account.status === 'active' ? '有效' : 
+                                  account.status === 'inactive' ? '无效' : '未知';
+                
+                // 添加延迟动画
+                const delay = index * 50;
+                
+                html += `
+                <div class="account-item" data-email="${account.email}" data-status="${account.status}" style="animation-delay: ${delay}ms;">
+                    <input type="checkbox" class="account-checkbox" data-email="${account.email}">
+                    <span class="account-email" onclick="loginWithAccount('${account.email}')">${account.email}</span>
+                    <span class="account-status ${statusClass}">${statusText}</span>
+                </div>
+                `;
+            });
+            
+            container.className = 'account-list';
+            container.innerHTML = html;
+            
+            // 重置全选框
+            document.getElementById('selectAllAccounts').checked = false;
+        }
+        
+        function filterAccounts() {
+            const searchTerm = document.getElementById('accountSearch').value.toLowerCase();
+            const accountItems = document.querySelectorAll('#accountList .account-item');
+            
+            accountItems.forEach(item => {
+                const email = item.getAttribute('data-email').toLowerCase();
+                if (email.includes(searchTerm)) {
+                    item.classList.remove('filtered');
+                } else {
+                    item.classList.add('filtered');
+                }
+            });
+        }
+        
+        function filterByStatus(status) {
+            // 更新按钮状态
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`.filter-btn[data-filter="${status}"]`).classList.add('active');
+            
+            // 筛选账户列表
+            const accountItems = document.querySelectorAll('#accountList .account-item');
+            
+            accountItems.forEach(item => {
+                const itemStatus = item.getAttribute('data-status');
+                
+                if (status === 'all' || itemStatus === status) {
+                    item.classList.remove('filtered');
+                } else {
+                    item.classList.add('filtered');
+                }
+            });
+        }
+        
+        function toggleSelectAll() {
+            const isChecked = document.getElementById('selectAllAccounts').checked;
+            const visibleCheckboxes = document.querySelectorAll('#accountList .account-item:not(.filtered) .account-checkbox');
+            
+            visibleCheckboxes.forEach(checkbox => {
+                checkbox.checked = isChecked;
+            });
+        }
+        
+        function loginWithAccount(email) {
+            if (!savedAccounts[email]) {
+                showError('账户信息不存在');
+                return;
+            }
+            
+            // 添加加载动画
+            const accountItems = document.querySelectorAll('#accountList .account-item');
+            accountItems.forEach(item => {
+                if (item.getAttribute('data-email') === email) {
+                    item.style.background = 'rgba(102, 126, 234, 0.1)';
+                    item.style.transition = 'all 0.3s ease';
+                }
+            });
+            
+            currentUser = email;
+            setTimeout(() => showLoginSuccess(), 300); // 添加短暂延迟以显示选中效果
+        }
+        
+        async function deleteSelectedAccounts() {
+            const checkboxes = document.querySelectorAll('#accountList .account-item:not(.filtered) .account-checkbox:checked');
+            if (checkboxes.length === 0) {
+                showError('请至少选择一个要删除的账户');
+                return;
+            }
+            
+            if (!confirm(`确定要删除选中的 ${checkboxes.length} 个账户吗？此操作不可撤销。`)) {
+                return;
+            }
+            
+            const emails = Array.from(checkboxes).map(cb => cb.dataset.email);
+            
+            // 先添加视觉反馈
+            emails.forEach(email => {
+                const item = document.querySelector(`.account-item[data-email="${email}"]`);
+                if (item) {
+                    item.style.opacity = '0.5';
+                    item.style.background = '#fee2e2';
+                }
+            });
+            
+            try {
+                const response = await makeRequest(`${API_BASE}/accounts`, {
+                    method: 'DELETE',
+                    body: JSON.stringify({ emails })
+                });
+                
+                if (!response.ok) throw new Error('删除账户失败');
+                
+                const result = await response.json();
+                
+                // 更新本地存储
+                emails.forEach(email => {
+                    delete savedAccounts[email];
+                });
+                localStorage.setItem('savedAccounts', JSON.stringify(savedAccounts));
+                
+                showSuccess(result.message || `成功删除 ${result.deleted} 个账户`);
+                
+                // 淡出动画后重新加载账户列表
+                setTimeout(() => loadAccountList(), 300);
+                
+            } catch (error) {
+                showError('删除账户失败: ' + error.message);
+                // 恢复视觉状态
+                emails.forEach(email => {
+                    const item = document.querySelector(`.account-item[data-email="${email}"]`);
+                    if (item) {
+                        item.style.opacity = '1';
+                        item.style.background = '';
+                    }
+                });
             }
         }
 
@@ -1092,13 +2023,12 @@ example2@outlook.com----password2----refresh_token2----client_id2"></textarea>
             document.getElementById('loginCard').classList.add('hidden');
             document.getElementById('emailCard').classList.remove('hidden');
             document.getElementById('userEmail').textContent = currentUser;
+            
+            // 加载账户选择器
+            loadAccountSwitcher();
+            
             showSuccess(`已登录: ${currentUser}`);
             loadDualEmails();
-        }
-
-        function showLoginForm() {
-            document.getElementById('accountSelector').classList.add('hidden');
-            document.getElementById('singleLogin').classList.remove('hidden');
         }
 
         function logout() {
@@ -1122,8 +2052,10 @@ example2@outlook.com----password2----refresh_token2----client_id2"></textarea>
             const inboxList = document.getElementById('inboxList');
             const junkList = document.getElementById('junkList');
             
-            inboxList.innerHTML = '<div class="loading"><p>加载中...</p></div>';
-            junkList.innerHTML = '<div class="loading"><p>加载中...</p></div>';
+            // 添加加载动画
+            const loadingHTML = '<div class="loading"><div class="spinner"></div><p>加载中...</p></div>';
+            inboxList.innerHTML = loadingHTML;
+            junkList.innerHTML = loadingHTML;
 
             try {
                 const response = await makeRequest(`${API_BASE}/emails/${currentUser}/dual-view?inbox_page=${currentInboxPage}&junk_page=${currentJunkPage}&page_size=20`);
@@ -1332,6 +2264,98 @@ example2@outlook.com----password2----refresh_token2----client_id2"></textarea>
             document.getElementById('detailCard').classList.add('hidden');
             document.getElementById('emailCard').classList.remove('hidden');
         }
+        
+        function backToAccountManage() {
+            document.getElementById('emailCard').classList.add('hidden');
+            document.getElementById('loginCard').classList.remove('hidden');
+            switchTab('manage');
+            loadAccountList();
+        }
+        
+        async function loadAccountSwitcher() {
+            try {
+                const response = await makeRequest(`${API_BASE}/accounts`);
+                if (!response.ok) throw new Error('获取账户列表失败');
+                
+                const accounts = await response.json();
+                const switcher = document.getElementById('accountSwitcher');
+                
+                // 清空现有选项
+                switcher.innerHTML = '<option value="">选择邮箱...</option>';
+                
+                // 添加账户选项
+                accounts.forEach(account => {
+                    const option = document.createElement('option');
+                    option.value = account.email;
+                    option.textContent = account.email;
+                    
+                    // 标记当前账户
+                    if (account.email === currentUser) {
+                        option.selected = true;
+                        option.textContent += ' (当前)';
+                    }
+                    
+                    // 根据状态添加标识
+                    if (account.status === 'inactive') {
+                        option.textContent += ' (无效)';
+                        option.style.color = '#dc2626';
+                    } else if (account.status === 'active') {
+                        option.style.color = '#16a34a';
+                    }
+                    
+                    switcher.appendChild(option);
+                });
+                
+            } catch (error) {
+                console.error('加载账户选择器失败:', error);
+            }
+        }
+        
+        async function switchAccount() {
+            const switcher = document.getElementById('accountSwitcher');
+            const selectedEmail = switcher.value;
+            
+            if (!selectedEmail || selectedEmail === currentUser) {
+                return;
+            }
+            
+            if (!savedAccounts[selectedEmail]) {
+                showError('账户信息不存在，请返回账户管理重新添加');
+                switcher.value = currentUser; // 恢复原选择
+                return;
+            }
+            
+            // 添加切换动画
+            const emailCard = document.getElementById('emailCard');
+            emailCard.style.opacity = '0.5';
+            emailCard.style.transition = 'opacity 0.3s ease';
+            
+            try {
+                // 清除旧用户的缓存
+                if (typeof email_cache !== 'undefined') {
+                    // 这是前端缓存清理的占位符
+                }
+                
+                currentUser = selectedEmail;
+                document.getElementById('userEmail').textContent = currentUser;
+                
+                // 重新加载账户选择器以更新"当前"标识
+                await loadAccountSwitcher();
+                
+                // 重新加载邮件
+                currentInboxPage = 1;
+                currentJunkPage = 1;
+                await loadDualEmails();
+                
+                showSuccess(`已切换到: ${currentUser}`);
+                
+            } catch (error) {
+                showError('切换邮箱失败: ' + error.message);
+                switcher.value = currentUser; // 恢复原选择
+            } finally {
+                emailCard.style.opacity = '1';
+            }
+        }
 
         function updateDualPagination(inboxTotal, junkTotal) {
             const inboxPagination = document.getElementById('inboxPagination');
@@ -1372,6 +2396,13 @@ example2@outlook.com----password2----refresh_token2----client_id2"></textarea>
                 showAdminLogin();
             }
         };
+        
+        // 页面可见性变化时刷新账户选择器
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden && currentUser && document.getElementById('emailCard').classList.contains('hidden') === false) {
+                loadAccountSwitcher();
+            }
+        });
     </script>
 </body>
 </html>

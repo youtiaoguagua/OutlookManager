@@ -3,9 +3,11 @@ import json
 import logging
 import email
 import re
-from datetime import datetime
-from typing import Optional, List, Dict, Any
+from datetime import datetime, timedelta
+from typing import Optional, List, Dict, Any, Union
 from pathlib import Path
+import time
+from functools import lru_cache
 
 import httpx
 from fastapi import FastAPI, HTTPException, Query, Depends, status
@@ -46,6 +48,22 @@ class AccountCredentials(BaseModel):
     email: EmailStr
     refresh_token: str
     client_id: str
+
+class AccountStatus(BaseModel):
+    email: EmailStr
+    status: str = "unknown"  # "active", "inactive", "unknown"
+
+class AccountDeleteRequest(BaseModel):
+    emails: List[EmailStr]
+
+class AccountVerificationRequest(BaseModel):
+    accounts: List[AccountCredentials]
+
+class AccountVerificationResult(BaseModel):
+    email: EmailStr
+    status: str  # "success" 或 "error"
+    message: str = ""
+    credentials: Optional[AccountCredentials] = None
 
 class EmailItem(BaseModel):
     message_id: str
@@ -205,34 +223,105 @@ async def get_account_credentials(email_id: str) -> AccountCredentials:
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-async def save_account_credentials(email_id: str, credentials: AccountCredentials) -> None:
-    """保存账户凭证到accounts.json"""
+async def get_all_accounts() -> Dict[str, Dict[str, str]]:
+    """获取所有账户信息（优化IO）"""
     try:
-        accounts = {}
-        if Path(ACCOUNTS_FILE).exists():
-            with open(ACCOUNTS_FILE, 'r', encoding='utf-8') as f:
-                accounts = json.load(f)
+        if not Path(ACCOUNTS_FILE).exists():
+            return {}
         
-        accounts[email_id] = {
-            'refresh_token': credentials.refresh_token,
-            'client_id': credentials.client_id
-        }
-        
-        with open(ACCOUNTS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(accounts, f, indent=2, ensure_ascii=False)
-        
+        # 使用线程池执行文件读取
+        return await asyncio.to_thread(_read_accounts_sync)
+    except Exception as e:
+        logger.error(f"Error getting all accounts: {e}")
+        return {}
+
+def _read_accounts_sync() -> Dict[str, Dict[str, str]]:
+    """同步读取函数"""
+    try:
+        with open(ACCOUNTS_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except json.JSONDecodeError:
+        logger.error("Failed to decode accounts file")
+        return {}
+
+
+async def save_account_credentials(email_id: str, credentials: AccountCredentials) -> None:
+    """保存账户凭证到accounts.json（优化IO操作）"""
+    try:
+        # 使用线程池执行文件IO操作
+        await asyncio.to_thread(_save_account_sync, email_id, credentials)
         logger.info(f"Account credentials saved for {email_id}")
     except Exception as e:
         logger.error(f"Error saving account credentials: {e}")
         raise HTTPException(status_code=500, detail="Failed to save account")
+
+def _save_account_sync(email_id: str, credentials: AccountCredentials):
+    """同步保存函数"""
+    accounts = {}
+    if Path(ACCOUNTS_FILE).exists():
+        with open(ACCOUNTS_FILE, 'r', encoding='utf-8') as f:
+            accounts = json.load(f)
+    
+    accounts[email_id] = {
+        'refresh_token': credentials.refresh_token,
+        'client_id': credentials.client_id
+    }
+    
+    # 原子写入，先写临时文件再移动
+    temp_file = ACCOUNTS_FILE + '.tmp'
+    with open(temp_file, 'w', encoding='utf-8') as f:
+        json.dump(accounts, f, indent=2, ensure_ascii=False)
+    
+    import os
+    os.replace(temp_file, ACCOUNTS_FILE)
+
+
+async def delete_accounts(emails: List[str]) -> Dict[str, int]:
+    """从accounts.json中删除指定的账户"""
+    try:
+        if not Path(ACCOUNTS_FILE).exists():
+            return {"deleted": 0, "not_found": len(emails)}
+        
+        with open(ACCOUNTS_FILE, 'r', encoding='utf-8') as f:
+            accounts = json.load(f)
+        
+        deleted = 0
+        not_found = 0
+        
+        for email in emails:
+            if email in accounts:
+                del accounts[email]
+                deleted += 1
+            else:
+                not_found += 1
+        
+        with open(ACCOUNTS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(accounts, f, indent=2, ensure_ascii=False)
+        
+        logger.info(f"Deleted {deleted} accounts, {not_found} not found")
+        return {"deleted": deleted, "not_found": not_found}
+    except json.JSONDecodeError:
+        logger.error("Failed to decode accounts file")
+        raise HTTPException(status_code=500, detail="Failed to read accounts file")
+    except Exception as e:
+        logger.error(f"Error deleting accounts: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete accounts")
 
 
 # ============================================================================
 # OAuth2令牌获取模块
 # ============================================================================
 
-async def get_access_token(credentials: AccountCredentials) -> str:
-    """使用refresh_token获取access_token"""
+async def get_access_token(credentials: AccountCredentials, check_only: bool = False) -> Optional[str]:
+    """使用refresh_token获取access_token
+    
+    Args:
+        credentials: 账户凭证
+        check_only: 如果为True，验证失败时返回None而不是抛出异常
+        
+    Returns:
+        成功返回access_token，如果check_only=True且验证失败则返回None
+    """
     data = {
         'client_id': credentials.client_id,
         'grant_type': 'refresh_token',
@@ -249,6 +338,8 @@ async def get_access_token(credentials: AccountCredentials) -> str:
             access_token = token_data.get('access_token')
             
             if not access_token:
+                if check_only:
+                    return None
                 raise HTTPException(status_code=401, detail="Failed to obtain access token")
             
             logger.info(f"Successfully obtained access token for {credentials.email}")
@@ -256,9 +347,13 @@ async def get_access_token(credentials: AccountCredentials) -> str:
     
     except httpx.HTTPError as e:
         logger.error(f"HTTP error getting access token: {e}")
+        if check_only:
+            return None
         raise HTTPException(status_code=401, detail="Invalid credentials")
     except Exception as e:
         logger.error(f"Error getting access token: {e}")
+        if check_only:
+            return None
         raise HTTPException(status_code=500, detail="Token acquisition failed")
 
 
@@ -266,8 +361,71 @@ async def get_access_token(credentials: AccountCredentials) -> str:
 # IMAP核心服务 - 邮件列表
 # ============================================================================
 
+class IMAPConnectionPool:
+    """IMAP连接池，复用连接以提升性能"""
+    def __init__(self):
+        self._connections = {}
+        self._lock = asyncio.Lock()
+    
+    async def get_connection(self, credentials: AccountCredentials, access_token: str):
+        key = credentials.email
+        async with self._lock:
+            if key not in self._connections:
+                imap_client = imaplib.IMAP4_SSL(IMAP_SERVER, IMAP_PORT)
+                auth_string = f"user={credentials.email}\1auth=Bearer {access_token}\1\1".encode('utf-8')
+                imap_client.authenticate('XOAUTH2', lambda x: auth_string)
+                self._connections[key] = imap_client
+            return self._connections[key]
+    
+    def close_connection(self, email: str):
+        if email in self._connections:
+            try:
+                self._connections[email].logout()
+            except:
+                pass
+            del self._connections[email]
+
+# 全局连接池实例
+imap_pool = IMAPConnectionPool()
+
+# 邮件列表缓存
+class EmailCache:
+    def __init__(self, ttl: int = 300):  # 5分钟缓存
+        self.cache = {}
+        self.ttl = ttl
+    
+    def get_key(self, email: str, folder: str, page: int, page_size: int) -> str:
+        return f"{email}:{folder}:{page}:{page_size}"
+    
+    def get(self, email: str, folder: str, page: int, page_size: int) -> Optional[EmailListResponse]:
+        key = self.get_key(email, folder, page, page_size)
+        if key in self.cache:
+            data, timestamp = self.cache[key]
+            if time.time() - timestamp < self.ttl:
+                return data
+            else:
+                del self.cache[key]
+        return None
+    
+    def set(self, email: str, folder: str, page: int, page_size: int, data: EmailListResponse):
+        key = self.get_key(email, folder, page, page_size)
+        self.cache[key] = (data, time.time())
+    
+    def clear_user(self, email: str):
+        keys_to_remove = [k for k in self.cache.keys() if k.startswith(f"{email}:")]
+        for key in keys_to_remove:
+            del self.cache[key]
+
+email_cache = EmailCache()
+
 async def list_emails(credentials: AccountCredentials, folder: str, page: int, page_size: int) -> EmailListResponse:
-    """获取邮件列表"""
+    """获取邮件列表（含缓存）"""
+    # 先检查缓存
+    cached_result = email_cache.get(credentials.email, folder, page, page_size)
+    if cached_result:
+        logger.info(f"Cache hit for {credentials.email}, folder: {folder}, page: {page}")
+        return cached_result
+    
     access_token = await get_access_token(credentials)
     
     def _sync_list_emails():
@@ -334,9 +492,9 @@ async def list_emails(credentials: AccountCredentials, folder: str, page: int, p
                     if not msg_ids_to_fetch:
                         continue
 
-                    # 批量获取邮件头
+                    # 批量获取邮件头（优化字段选择）
                     msg_id_sequence = b','.join(msg_ids_to_fetch)
-                    status, msg_data = imap_client.fetch(msg_id_sequence, '(BODY.PEEK[HEADER.FIELDS (SUBJECT DATE FROM)])')
+                    status, msg_data = imap_client.fetch(msg_id_sequence, '(BODY.PEEK[HEADER.FIELDS (SUBJECT DATE FROM)] FLAGS)')
 
                     if status != 'OK':
                         continue
@@ -354,16 +512,20 @@ async def list_emails(credentials: AccountCredentials, folder: str, page: int, p
 
                         msg = email.message_from_bytes(header_data)
                         
-                        subject = decode_header_value(msg.get('Subject', '(No Subject)'))
-                        from_email = decode_header_value(msg.get('From', '(Unknown Sender)'))
+                        # 优化字段解析，减少重复处理
+                        subject = decode_header_value(msg.get('Subject')) or '(No Subject)'
+                        from_email = decode_header_value(msg.get('From')) or '(Unknown Sender)'
                         date_str = msg.get('Date', '')
                         
-                        try:
-                            date_obj = parsedate_to_datetime(date_str) if date_str else datetime.now()
-                            formatted_date = date_obj.isoformat()
-                        except:
-                            date_obj = datetime.now()
-                            formatted_date = date_obj.isoformat()
+                        # 优化日期解析，避免异常处理开销
+                        if date_str:
+                            try:
+                                date_obj = parsedate_to_datetime(date_str)
+                                formatted_date = date_obj.isoformat()
+                            except:
+                                formatted_date = datetime.now().isoformat()
+                        else:
+                            formatted_date = datetime.now().isoformat()
                         
                         message_id = f"{folder_name}-{fetched_msg_id.decode()}"
                         
@@ -397,7 +559,7 @@ async def list_emails(credentials: AccountCredentials, folder: str, page: int, p
             # 关闭连接
             imap_client.logout()
             
-            return EmailListResponse(
+            result = EmailListResponse(
                 email_id=credentials.email,
                 folder_view=folder,
                 page=page,
@@ -405,6 +567,10 @@ async def list_emails(credentials: AccountCredentials, folder: str, page: int, p
                 total_emails=total_emails,
                 emails=email_items
             )
+            
+            # 缓存结果
+            email_cache.set(credentials.email, folder, page, page_size, result)
+            return result
         
         except Exception as e:
             logger.error(f"Error listing emails: {e}")
@@ -528,9 +694,40 @@ async def get_auth_config(current_admin: bool = Depends(get_current_admin)):
     """获取认证配置信息（用于前端判断认证状态）"""
     return get_config_info()
 
-@app.post("/accounts", response_model=AccountResponse)
-async def register_account(credentials: AccountCredentials, current_admin: bool = Depends(get_current_admin)):
-    """注册或更新邮箱账户"""
+@app.post("/accounts", response_model=Union[AccountResponse, List[AccountResponse]])
+async def register_account(
+    credentials: Union[AccountCredentials, List[AccountCredentials]],
+    current_admin: bool = Depends(get_current_admin)
+):
+    """注册或更新邮箱账户，支持单个或批量
+    
+    Args:
+        credentials: 单个账户凭证或账户凭证列表
+    
+    Returns:
+        单个账户响应或账户响应列表
+    """
+    # 处理单个凭证的情况
+    if isinstance(credentials, AccountCredentials):
+        return await register_single_account(credentials)
+    
+    # 处理凭证列表的情况
+    results = []
+    for cred in credentials:
+        try:
+            result = await register_single_account(cred)
+            results.append(result)
+        except HTTPException as e:
+            # 对于批量操作，单个账户失败不应影响其他账户
+            results.append(AccountResponse(
+                email_id=cred.email,
+                message=f"Error: {e.detail}"
+            ))
+    
+    return results
+
+async def register_single_account(credentials: AccountCredentials) -> AccountResponse:
+    """注册或更新单个邮箱账户"""
     try:
         # 验证凭证有效性
         await get_access_token(credentials)
@@ -549,6 +746,48 @@ async def register_account(credentials: AccountCredentials, current_admin: bool 
         logger.error(f"Error registering account: {e}")
         raise HTTPException(status_code=500, detail="Account registration failed")
 
+@app.get("/accounts", response_model=List[AccountStatus])
+async def get_accounts(
+    check_status: bool = False,
+    current_admin: bool = Depends(get_current_admin)
+):
+    """获取所有账户列表，可选择检查账户活性状态
+    
+    Args:
+        check_status: 是否检查账户活性状态
+    """
+    accounts = await get_all_accounts()
+    
+    if not check_status:
+        # 仅返回邮箱列表，不检查状态
+        return [AccountStatus(email=email) for email in accounts.keys()]
+    
+    # 并行检查所有账户的活性
+    result = []
+    tasks = []
+    
+    for email, account_data in accounts.items():
+        credentials = AccountCredentials(
+            email=email,
+            refresh_token=account_data['refresh_token'],
+            client_id=account_data['client_id']
+        )
+        # 创建异步任务
+        task = asyncio.create_task(check_account_status(credentials))
+        tasks.append((email, task))
+    
+    # 等待所有任务完成
+    for email, task in tasks:
+        is_active = await task
+        status = "active" if is_active else "inactive"
+        result.append(AccountStatus(email=email, status=status))
+    
+    return result
+
+async def check_account_status(credentials: AccountCredentials) -> bool:
+    """检查账户活性状态"""
+    token = await get_access_token(credentials, check_only=True)
+    return token is not None
 
 @app.get("/emails/{email_id}", response_model=EmailListResponse)
 async def get_emails(
@@ -610,6 +849,81 @@ async def api_status():
             "get_emails": "GET /emails/{email_id}",
             "get_email_detail": "GET /emails/{email_id}/{message_id}"
         }
+    }
+
+@app.post("/accounts/verify", response_model=List[AccountVerificationResult])
+async def verify_accounts(
+    request: AccountVerificationRequest,
+    current_admin: bool = Depends(get_current_admin)
+):
+    """批量验证账户凭证有效性
+    
+    Args:
+        request: 包含多个账户凭证的请求
+    
+    Returns:
+        每个账户的验证结果列表
+    """
+    results = []
+    tasks = []
+    
+    # 创建并行验证任务
+    for credentials in request.accounts:
+        task = asyncio.create_task(verify_single_account(credentials))
+        tasks.append((credentials, task))
+    
+    # 等待所有任务完成
+    for credentials, task in tasks:
+        result = await task
+        results.append(result)
+    
+    return results
+
+async def verify_single_account(credentials: AccountCredentials) -> AccountVerificationResult:
+    """验证单个账户凭证的有效性"""
+    try:
+        token = await get_access_token(credentials, check_only=True)
+        if token:
+            return AccountVerificationResult(
+                email=credentials.email,
+                status="success",
+                message="账户验证成功",
+                credentials=credentials
+            )
+        else:
+            return AccountVerificationResult(
+                email=credentials.email,
+                status="error",
+                message="获取访问令牌失败，请检查凭证"
+            )
+    except Exception as e:
+        logger.error(f"Error verifying account {credentials.email}: {e}")
+        return AccountVerificationResult(
+            email=credentials.email,
+            status="error",
+            message=f"验证过程出错: {str(e)}"
+        )
+
+@app.delete("/accounts")
+async def delete_multiple_accounts(
+    request: AccountDeleteRequest,
+    current_admin: bool = Depends(get_current_admin)
+):
+    """批量删除账户
+    
+    Args:
+        request: 包含要删除的邮箱地址列表的请求
+    
+    Returns:
+        删除操作的结果统计
+    """
+    if not request.emails:
+        return {"message": "没有指定要删除的账户", "deleted": 0, "not_found": 0}
+    
+    result = await delete_accounts(request.emails)
+    return {
+        "message": f"成功删除 {result['deleted']} 个账户，{result['not_found']} 个账户未找到",
+        **result
     }
 
 
