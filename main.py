@@ -418,8 +418,13 @@ class EmailCache:
 
 email_cache = EmailCache()
 
-async def list_emails(credentials: AccountCredentials, folder: str, page: int, page_size: int) -> EmailListResponse:
+async def list_emails(credentials: AccountCredentials, folder: str, page: int, page_size: int, force_refresh: bool = False) -> EmailListResponse:
     """获取邮件列表（含缓存）"""
+    # 如果强制刷新，先清除该用户的缓存
+    if force_refresh:
+        logger.info(f"Force refresh requested for {credentials.email}, clearing cache")
+        email_cache.clear_user(credentials.email)
+    
     # 先检查缓存
     cached_result = email_cache.get(credentials.email, folder, page, page_size)
     if cached_result:
@@ -795,11 +800,12 @@ async def get_emails(
     folder: str = Query("all", pattern="^(inbox|junk|all)$"),
     page: int = Query(1, ge=1),
     page_size: int = Query(100, ge=1, le=500),
+    force_refresh: bool = Query(False),
     current_admin: bool = Depends(get_current_admin)
 ):
     """获取邮件列表"""
     credentials = await get_account_credentials(email_id)
-    return await list_emails(credentials, folder, page, page_size)
+    return await list_emails(credentials, folder, page, page_size, force_refresh)
 
 
 @app.get("/emails/{email_id}/dual-view")
@@ -808,14 +814,15 @@ async def get_dual_view_emails(
     inbox_page: int = Query(1, ge=1),
     junk_page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
+    force_refresh: bool = Query(False),
     current_admin: bool = Depends(get_current_admin)
 ):
     """获取双栏视图邮件（收件箱和垃圾箱）"""
     credentials = await get_account_credentials(email_id)
     
     # 并行获取收件箱和垃圾箱邮件
-    inbox_response = await list_emails(credentials, "inbox", inbox_page, page_size)
-    junk_response = await list_emails(credentials, "junk", junk_page, page_size)
+    inbox_response = await list_emails(credentials, "inbox", inbox_page, page_size, force_refresh)
+    junk_response = await list_emails(credentials, "junk", junk_page, page_size, force_refresh)
     
     return DualViewEmailResponse(
         email_id=email_id,

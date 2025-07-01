@@ -1277,6 +1277,46 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+        
+        /* 复制按钮样式 */
+        .copy-button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 6px 12px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            opacity: 0.8;
+            transition: all 0.3s ease;
+            z-index: 10;
+        }
+        
+        .copy-button:hover {
+            opacity: 1;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+        }
+        
+        .copy-button.copied {
+            background: linear-gradient(135deg, #10b981, #059669);
+        }
+        
+        .copy-button-icon {
+            width: 14px;
+            height: 14px;
+        }
+        
+        .email-content {
+            position: relative;
+        }
     </style>
 </head>
 <body>
@@ -1387,7 +1427,7 @@
                             <option value="">选择邮箱...</option>
                         </select>
                     </div>
-                    <button class="btn btn-secondary" onclick="loadDualEmails()">🔄 刷新</button>
+                    <button class="btn btn-secondary" onclick="loadDualEmails(true)">🔄 刷新</button>
                     <button class="btn btn-secondary" onclick="backToAccountManage()">📋 账户管理</button>
                     <button class="btn btn-secondary" onclick="logout()">退出登录</button>
                 </div>
@@ -2028,7 +2068,7 @@
             loadAccountSwitcher();
             
             showSuccess(`已登录: ${currentUser}`);
-            loadDualEmails();
+            loadDualEmails(false);
         }
 
         function logout() {
@@ -2048,7 +2088,7 @@
         let currentInboxPage = 1;
         let currentJunkPage = 1;
 
-        async function loadDualEmails() {
+        async function loadDualEmails(forceRefresh = false) {
             const inboxList = document.getElementById('inboxList');
             const junkList = document.getElementById('junkList');
             
@@ -2058,7 +2098,7 @@
             junkList.innerHTML = loadingHTML;
 
             try {
-                const response = await makeRequest(`${API_BASE}/emails/${currentUser}/dual-view?inbox_page=${currentInboxPage}&junk_page=${currentJunkPage}&page_size=20`);
+                const response = await makeRequest(`${API_BASE}/emails/${currentUser}/dual-view?inbox_page=${currentInboxPage}&junk_page=${currentJunkPage}&page_size=20&force_refresh=${forceRefresh}`);
                 if (!response.ok) throw new Error('获取邮件失败');
                 
                 const data = await response.json();
@@ -2120,12 +2160,12 @@
 
         async function loadInboxPage(page) {
             currentInboxPage = page;
-            await loadDualEmails();
+            await loadDualEmails(false);
         }
 
         async function loadJunkPage(page) {
             currentJunkPage = page;
-            await loadDualEmails();
+            await loadDualEmails(false);
         }
 
         function sanitizeHTML(html) {
@@ -2186,11 +2226,25 @@
                     
                     ${hasPlain ? `
                     <div id="plainContent" class="email-content plain-content hidden">
+                        <button class="copy-button" onclick="copyToClipboard('plainContent')">
+                            <svg class="copy-button-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                            复制内容
+                        </button>
                         <pre style="white-space: pre-wrap; font-family: inherit;">${email.body_plain}</pre>
                     </div>
                     ` : ''}
                     
                     <div id="rawContent" class="email-content raw-content hidden">
+                        <button class="copy-button" onclick="copyToClipboard('rawContent')">
+                            <svg class="copy-button-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                            复制源码
+                        </button>
                         <pre style="background: #1e293b; color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 12px;">${email.body_html.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
                     </div>
                 `;
@@ -2198,6 +2252,13 @@
                 // 只有纯文本
                 return `
                     <div class="email-content plain-content">
+                        <button class="copy-button" onclick="copyToClipboard('plainContent')">
+                            <svg class="copy-button-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                            复制内容
+                        </button>
                         <pre style="white-space: pre-wrap; font-family: inherit; line-height: 1.6;">${email.body_plain}</pre>
                     </div>
                 `;
@@ -2226,6 +2287,40 @@
             
             document.getElementById('rawTab').classList.add('active');
             document.getElementById('rawContent').classList.remove('hidden');
+        }
+        
+        function copyToClipboard(contentId) {
+            // 获取要复制的内容
+            const contentElement = document.getElementById(contentId);
+            const textToCopy = contentElement.querySelector('pre').innerText;
+            
+            // 使用 Clipboard API 复制文本
+            navigator.clipboard.writeText(textToCopy)
+                .then(() => {
+                    // 复制成功，更新按钮状态
+                    const copyButton = contentElement.querySelector('.copy-button');
+                    const originalText = copyButton.innerHTML;
+                    
+                    copyButton.classList.add('copied');
+                    copyButton.innerHTML = `
+                        <svg class="copy-button-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        已复制
+                    `;
+                    
+                    // 2秒后恢复按钮状态
+                    setTimeout(() => {
+                        copyButton.classList.remove('copied');
+                        copyButton.innerHTML = originalText;
+                    }, 2000);
+                    
+                    showSuccess('内容已复制到剪贴板');
+                })
+                .catch(err => {
+                    console.error('复制失败:', err);
+                    showError('复制失败，请手动选择并复制');
+                });
         }
 
         async function showEmailDetail(messageId) {
@@ -2345,7 +2440,7 @@
                 // 重新加载邮件
                 currentInboxPage = 1;
                 currentJunkPage = 1;
-                await loadDualEmails();
+                await loadDualEmails(false);
                 
                 showSuccess(`已切换到: ${currentUser}`);
                 
