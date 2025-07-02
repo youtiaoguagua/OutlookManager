@@ -245,6 +245,34 @@ def _read_accounts_sync() -> Dict[str, Dict[str, str]]:
         return {}
 
 
+async def save_multiple_accounts_batch(credentials_list: List[AccountCredentials]) -> None:
+    """批量保存多个账户凭证（优化版本）"""
+    try:
+        await asyncio.to_thread(_save_multiple_accounts_sync, credentials_list)
+        logger.info(f"Batch saved {len(credentials_list)} accounts")
+    except Exception as e:
+        logger.error(f"Error batch saving accounts: {e}")
+        raise HTTPException(status_code=500, detail="Failed to batch save accounts")
+
+def _save_multiple_accounts_sync(credentials_list: List[AccountCredentials]):
+    """同步批量保存函数"""
+    # 读取现有账户
+    accounts = {}
+    if Path(ACCOUNTS_FILE).exists():
+        with open(ACCOUNTS_FILE, 'r', encoding='utf-8') as f:
+            accounts = json.load(f)
+    
+    # 批量更新账户信息
+    for credentials in credentials_list:
+        accounts[credentials.email] = {
+            'refresh_token': credentials.refresh_token,
+            'client_id': credentials.client_id
+        }
+    
+    # 直接写入文件（用户要求移除原子写入）
+    with open(ACCOUNTS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(accounts, f, indent=2, ensure_ascii=False)
+
 async def save_account_credentials(email_id: str, credentials: AccountCredentials) -> None:
     """保存账户凭证到accounts.json（优化IO操作）"""
     try:
@@ -267,13 +295,9 @@ def _save_account_sync(email_id: str, credentials: AccountCredentials):
         'client_id': credentials.client_id
     }
     
-    # 原子写入，先写临时文件再移动
-    temp_file = ACCOUNTS_FILE + '.tmp'
-    with open(temp_file, 'w', encoding='utf-8') as f:
+    # 直接写入文件（用户要求移除原子写入）
+    with open(ACCOUNTS_FILE, 'w', encoding='utf-8') as f:
         json.dump(accounts, f, indent=2, ensure_ascii=False)
-    
-    import os
-    os.replace(temp_file, ACCOUNTS_FILE)
 
 
 async def delete_accounts(emails: List[str]) -> Dict[str, int]:
@@ -716,18 +740,85 @@ async def register_account(
     if isinstance(credentials, AccountCredentials):
         return await register_single_account(credentials)
     
-    # 处理凭证列表的情况
+    # 批量处理优化：并行验证 + 批量保存
+    return await register_multiple_accounts_optimized(credentials)
+
+async def register_multiple_accounts_optimized(credentials_list: List[AccountCredentials]) -> List[AccountResponse]:
+    """优化的批量账户注册：并行验证 + 批量保存"""
+    start_time = time.time()
+    
+    # 使用信号量控制并发，避免过多HTTP请求
+    semaphore = asyncio.Semaphore(10)  # 最多同时10个请求
+    
+    async def verify_single_with_semaphore(cred: AccountCredentials) -> tuple[AccountCredentials, bool, str]:
+        async with semaphore:
+            try:
+                token = await get_access_token(cred, check_only=True)
+                if token:
+                    return cred, True, "验证成功"
+                else:
+                    return cred, False, "获取访问令牌失败"
+            except Exception as e:
+                return cred, False, f"验证错误: {str(e)}"
+    
+    # 并行验证所有账户
+    logger.info(f"开始并行验证 {len(credentials_list)} 个账户...")
+    verify_start_time = time.time()
+    verification_tasks = [verify_single_with_semaphore(cred) for cred in credentials_list]
+    verification_results = await asyncio.gather(*verification_tasks, return_exceptions=True)
+    verify_time = time.time() - verify_start_time
+    logger.info(f"并行验证完成，耗时: {verify_time:.2f}秒")
+    
+    # 收集验证成功的账户
+    valid_credentials = []
     results = []
-    for cred in credentials:
-        try:
-            result = await register_single_account(cred)
-            results.append(result)
-        except HTTPException as e:
-            # 对于批量操作，单个账户失败不应影响其他账户
+    
+    for result in verification_results:
+        if isinstance(result, Exception):
+            # 处理异常
             results.append(AccountResponse(
-                email_id=cred.email,
-                message=f"Error: {e.detail}"
+                email_id="unknown",
+                message=f"验证异常: {str(result)}"
             ))
+        else:
+            cred, is_valid, message = result
+            if is_valid:
+                valid_credentials.append(cred)
+                results.append(AccountResponse(
+                    email_id=cred.email,
+                    message="账户验证成功，正在保存..."
+                ))
+            else:
+                results.append(AccountResponse(
+                    email_id=cred.email,
+                    message=f"验证失败: {message}"
+                ))
+    
+    # 批量保存有效的账户
+    if valid_credentials:
+        logger.info(f"批量保存 {len(valid_credentials)} 个有效账户...")
+        save_start_time = time.time()
+        try:
+            await save_multiple_accounts_batch(valid_credentials)
+            save_time = time.time() - save_start_time
+            logger.info(f"批量保存完成，耗时: {save_time:.2f}秒")
+            
+            # 更新成功保存的账户状态
+            for i, (cred, is_valid, _) in enumerate([r for r in verification_results if not isinstance(r, Exception)]):
+                if is_valid:
+                    for result in results:
+                        if result.email_id == cred.email:
+                            result.message = "账户验证成功并已保存"
+                            break
+        except Exception as e:
+            logger.error(f"批量保存失败: {e}")
+            # 更新失败状态
+            for result in results:
+                if "正在保存" in result.message:
+                    result.message = f"验证成功但保存失败: {str(e)}"
+    
+    total_time = time.time() - start_time
+    logger.info(f"批量注册完成，总耗时: {total_time:.2f}秒，处理了 {len(credentials_list)} 个账户，成功 {len(valid_credentials)} 个")
     
     return results
 
@@ -863,7 +954,7 @@ async def verify_accounts(
     request: AccountVerificationRequest,
     current_admin: bool = Depends(get_current_admin)
 ):
-    """批量验证账户凭证有效性
+    """批量验证账户凭证有效性（优化版本）
     
     Args:
         request: 包含多个账户凭证的请求
@@ -871,20 +962,37 @@ async def verify_accounts(
     Returns:
         每个账户的验证结果列表
     """
-    results = []
-    tasks = []
+    start_time = time.time()
+    logger.info(f"开始批量验证 {len(request.accounts)} 个账户...")
     
-    # 创建并行验证任务
-    for credentials in request.accounts:
-        task = asyncio.create_task(verify_single_account(credentials))
-        tasks.append((credentials, task))
+    # 使用信号量控制并发
+    semaphore = asyncio.Semaphore(10)
     
-    # 等待所有任务完成
-    for credentials, task in tasks:
-        result = await task
-        results.append(result)
+    async def verify_with_semaphore(credentials: AccountCredentials) -> AccountVerificationResult:
+        async with semaphore:
+            return await verify_single_account(credentials)
     
-    return results
+    # 并行验证所有账户
+    tasks = [verify_with_semaphore(credentials) for credentials in request.accounts]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    # 处理异常情况
+    final_results = []
+    for i, result in enumerate(results):
+        if isinstance(result, Exception):
+            final_results.append(AccountVerificationResult(
+                email=request.accounts[i].email,
+                status="error",
+                message=f"验证异常: {str(result)}"
+            ))
+        else:
+            final_results.append(result)
+    
+    total_time = time.time() - start_time
+    success_count = sum(1 for r in final_results if r.status == "success")
+    logger.info(f"批量验证完成，总耗时: {total_time:.2f}秒，处理了 {len(request.accounts)} 个账户，成功 {success_count} 个")
+    
+    return final_results
 
 async def verify_single_account(credentials: AccountCredentials) -> AccountVerificationResult:
     """验证单个账户凭证的有效性"""
@@ -910,6 +1018,48 @@ async def verify_single_account(credentials: AccountCredentials) -> AccountVerif
             status="error",
             message=f"验证过程出错: {str(e)}"
         )
+
+@app.post("/accounts/import", response_model=List[AccountResponse])
+async def import_verified_accounts(
+    credentials: List[AccountCredentials],
+    current_admin: bool = Depends(get_current_admin)
+):
+    """导入已验证的账户（不进行重复验证，直接保存）
+    
+    Args:
+        credentials: 已验证的账户凭证列表
+    
+    Returns:
+        导入结果列表
+    """
+    if not credentials:
+        return []
+    
+    try:
+        # 直接批量保存，不进行验证
+        await save_multiple_accounts_batch(credentials)
+        
+        # 返回成功结果
+        results = []
+        for cred in credentials:
+            results.append(AccountResponse(
+                email_id=cred.email,
+                message="账户已成功导入"
+            ))
+        
+        logger.info(f"成功导入 {len(credentials)} 个账户（无重复验证）")
+        return results
+        
+    except Exception as e:
+        logger.error(f"批量导入失败: {e}")
+        # 返回失败结果
+        results = []
+        for cred in credentials:
+            results.append(AccountResponse(
+                email_id=cred.email,
+                message=f"导入失败: {str(e)}"
+            ))
+        return results
 
 @app.delete("/accounts")
 async def delete_multiple_accounts(

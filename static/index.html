@@ -1757,7 +1757,7 @@
                 importBtn.innerHTML = '<div class="spinner spinner-sm"></div>导入中...';
                 importBtn.disabled = true;
                 
-                const response = await makeRequest(`${API_BASE}/accounts`, {
+                const response = await makeRequest(`${API_BASE}/accounts/import`, {
                     method: 'POST',
                     body: JSON.stringify(accounts)
                 });

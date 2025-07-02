@@ -6,3 +6,5 @@ demo2.py
 __pycache__
 accounts.json
 Task Progress.md
+.gitignore
+PERFORMANCE_OPTIMIZATION.md
