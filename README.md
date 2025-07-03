@@ -11,6 +11,12 @@
 
 ## 📈 更新日志
 
+### v2.3.0 (2025-07-03) - Docker部署权限问题修复
+
+- **🔧 修复Docker权限问题** - 解决accounts.json文件权限错误
+- **🐳 容器配置优化** - 调整容器用户设置为root
+
+----
 ### v2.2.0 (2025-07-02) - 批量账户导入性能优化
 
 ----
@@ -423,9 +429,7 @@ ADMIN_PASSWORD=admin123                    # 管理员密码
 volumes:
   - ./data:/app/data                    # 应用数据
   - ./accounts.json:/app/accounts.json  # 账户凭证
-```
-
-### 🛠️ 管理命令
+```### 🛠️ 管理命令
 
 ```bash
 # 查看状态
@@ -440,9 +444,10 @@ docker compose pull && docker compose up -d
 # 完全重置
 docker compose down -v && docker compose up -d
 ```
-
 ---
 
 **⭐ 如果这个项目对你有帮助，请给我们一个星标！**
 
 [![Star History Chart](https://api.star-history.com/svg?repos=oDaiSuno/OutlookManager&type=Date)](https://www.star-history.com/#oDaiSuno/OutlookManager&Date)
+
+

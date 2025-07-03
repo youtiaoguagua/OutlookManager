@@ -13,9 +13,7 @@ if [ ! -f "/app/accounts.json" ]; then
     echo "{}" > /app/accounts.json
 fi
 
-# 确保文件权限正确
-chown appuser:appuser /app/accounts.json 2>/dev/null || true
-chown appuser:appuser /app/data 2>/dev/null || true
+# 不再需要更改文件所有权，因为我们使用root用户运行容器
 
 echo "🚀 启动Outlook邮件API服务..."
 echo "📋 配置信息:"

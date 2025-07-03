@@ -95,4 +95,4 @@ trap 'echo "❌ 部署中断"; exit 1' INT
 # 执行主流程
 main
 
-echo "✨ 感谢使用Outlook邮件客户端!" 
+echo "✨ 感谢使用Outlook邮件客户端!"

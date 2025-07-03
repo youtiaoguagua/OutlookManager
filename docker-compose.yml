@@ -4,12 +4,14 @@ services:
   outlook-email-client:
     build: .
     container_name: outlook-email-api
+    # 使用root用户运行容器，解决权限问题
+    user: root
     ports:
       - "8000:8000"
     volumes:
       # 数据持久化 - 保存用户账户信息
       - ./data:/app/data
-      # 可选：如果需要自定义配置文件
+      # 账户信息持久化
       - ./accounts.json:/app/accounts.json
     environment:
       # 可以通过环境变量覆盖默认配置
