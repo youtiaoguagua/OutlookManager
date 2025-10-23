@@ -32,7 +32,7 @@ from config import verify_admin_password, get_config_info
 
 ACCOUNTS_FILE = "accounts.json"
 TOKEN_URL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
-IMAP_SERVER = "outlook.live.com"
+IMAP_SERVER = "imap.shanyouxiang.com"
 IMAP_PORT = 993
 
 # 配置日志
